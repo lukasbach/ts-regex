@@ -7,10 +7,14 @@ import { CharTable, InvertedCharTable } from './char-table';
                                                                           ///////////////////////////////// UTILITIES //
                                                                               //////////////////////////////////////////
 
-type And<A extends boolean, B extends boolean, C extends boolean = true, D extends boolean = true, E extends boolean = true, F extends boolean = true> =
-  A extends true ? B extends true ? C extends true ? D extends true ? E extends true ? F extends true ? true : false : false : false : false : false : false;
-type Or<A extends boolean, B extends boolean, C extends boolean = false, D extends boolean = false, E extends boolean = false, F extends boolean = false> =
-  A extends true ? true : B extends true ? true : C extends true ? true : D extends true ? true : E extends true ? true : F extends true ? true : false;
+type And<A extends boolean, B extends boolean, C extends boolean = true, D extends boolean = true,
+  E extends boolean = true, F extends boolean = true> =
+  A extends true ? B extends true ? C extends true ? D extends true ? E extends true ? F extends true ?
+    true : false : false : false : false : false : false;
+type Or<A extends boolean, B extends boolean, C extends boolean = false, D extends boolean = false,
+  E extends boolean = false, F extends boolean = false> =
+  A extends true ? true : B extends true ? true : C extends true ? true : D extends true ? true : E extends true
+    ? true : F extends true ? true : false;
 type Not<T extends boolean> = T extends true ? false : true;
 type IsEmpty<T extends string> = T extends "" ? true : false;
 type IsNotEmpty<T extends string> = Not<IsEmpty<T>>;
@@ -167,7 +171,10 @@ type IsNumberString<str extends string> = str extends numberString ? true : fals
 // ------------------------------------------------------------------------------------------------------- Groups --- //
 type IsGroup<regex extends string> = regex extends `(${"?:" | ""}${string})${string}` ? true : false;
 type IsGroupToken<regex extends string> = regex extends `(${"?:" | ""}${string})` ? true : false;
-type Group<regex extends string> = regex extends `(${"?:" | ""}${infer groupContent})${infer rest}` ? `${Regex<groupContent>}${Regex<rest>}` : never;
+type Group<regex extends string> =
+  regex extends `(${"?:" | ""}${infer groupContent})${infer rest}`
+    ? `${Regex<groupContent>}${Regex<rest>}`
+    : never;
 
 
 // -------------------------------------------------------------------------------------------- Character classes --- //
@@ -176,7 +183,8 @@ type IsWordSymbolToken<regex extends string> = regex extends `\w` ? true : false
 type WordSymbol<regex extends string> = regex extends `\w${infer rest}` ? `${word}${Regex<rest>}` : never;
 
 // TODO is-token-checks required?
-type IsToken<regex extends string> = Or<IsWordSymbolToken<regex>, IsGroupToken<regex>, IsAnyChar<regex>, IsCharRangeGroupToken<regex>>;
+type IsToken<regex extends string> =
+  Or<IsWordSymbolToken<regex>, IsGroupToken<regex>, IsAnyChar<regex>, IsCharRangeGroupToken<regex>>;
 
 
 // -------------------------------------------------------------------------------------------------- Quantifiers --- //
@@ -196,7 +204,8 @@ type MatchQuantifier<regex extends string, test extends string> =
     : false;
 
 // returns remaining string or never if not matched
-type ProcessQuantifier<regexPart extends string, test extends string, min extends string, max extends string, count extends string = "0"> =
+type ProcessQuantifier<
+  regexPart extends string, test extends string, min extends string, max extends string, count extends string = "0"> =
   IsLargerEquals<count, max> extends true
     ? test
     : test extends `${Regex<regexPart>}${infer testRest}`
