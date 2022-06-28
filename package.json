@@ -1,0 +1,29 @@
+{
+  "name": "ts-regex",
+  "version": "1.0.0",
+  "description": "A regex matcher implementation completely written in TypeScripts Type System.",
+  "main": "ts-regex.ts",
+  "scripts": {
+    "test": "tsc"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/lukasbach/ts-regex.git"
+  },
+  "keywords": [
+    "typescript",
+    "ts",
+    "regex",
+    "matcher",
+    "types"
+  ],
+  "author": "Lukas Bach <npm@lukasbach.com> (https://lukasbach.com)",
+  "license": "ISC",
+  "bugs": {
+    "url": "https://github.com/lukasbach/ts-regex/issues"
+  },
+  "homepage": "https://github.com/lukasbach/ts-regex#readme",
+  "dependencies": {
+    "typescript": "^4.7.4"
+  }
+}
