@@ -100,13 +100,16 @@ type Or<A extends boolean, B extends boolean, C extends boolean = false, D exten
 
 
 // regex components
+// TODO is-token-checks required?
 type IsGroup<regex extends string> = regex extends `(${"?:" | ""}${string})${string}` ? true : false;
+type IsGroupToken<regex extends string> = regex extends `(${"?:" | ""}${string})` ? true : false;
 type Group<regex extends string> = regex extends `(${"?:" | ""}${infer groupContent})${infer rest}` ? `${Regex<groupContent>}${Regex<rest>}` : never;
 
 type IsWordSymbol<regex extends string> = regex extends `\w${string}` ? true : false;
+type IsWordSymbolToken<regex extends string> = regex extends `\w` ? true : false;
 type WordSymbol<regex extends string> = regex extends `\w${infer rest}` ? `${word}${Regex<rest>}` : never;
 
-type IsToken<regex extends string> = Or<IsWordSymbol<regex>, IsGroup<regex>, IsAnyChar<regex>>;
+type IsToken<regex extends string> = Or<IsWordSymbolToken<regex>, IsGroupToken<regex>, IsAnyChar<regex>, IsCharRangeGroupToken<regex>>;
 
 type IsQuantifier<regex extends string> =
     regex extends `${infer token}{${infer quantity}}${string}`
@@ -117,6 +120,12 @@ type Quantifier<regex extends string> =
     ? `${Quantified<Regex<token>, quantity>}${Regex<rest>}`
     : never;
 
+type IsCharRangeGroup<regex extends string> = regex extends `[${string}]${string}` ? true : false;
+type IsCharRangeGroupToken<regex extends string> = regex extends `[${string}]` ? true : false;
+type CharRangeGroup<regex extends string> =
+  regex extends `[${infer range}]${infer rest}`
+    ? `${CharRange<range>}${Regex<rest>}`
+    : never;
 
 // main type
 type Regex<S extends string> =
@@ -135,8 +144,7 @@ type Regex<S extends string> =
     : S extends `${infer A}|${infer B}`
     ? Regex<A> | Regex<B>
 
-    : S extends `[${infer R}]${infer A}`
-    ? `${CharRange<R>}${Regex<A>}`
+    : IsCharRangeGroup<S> extends true ? CharRangeGroup<S>
 
     : S extends `\w${infer A}`
     ? `${word}${Regex<A>}`
@@ -176,3 +184,4 @@ typeAssert<Test<Regex<"\w\d\s">, "a3 ">>();
 typeAssert<Test<Regex<"[abc]|\dxx">, "a" | "b" | "c" | `${digit}xx`>>();
 typeAssert<Test<Regex<"(ab){4}">, "abababab">>();
 typeAssert<Test<Regex<"a{10}">, "aaaaaaaaaa">>();
+typeAssert<Test<Regex<"[a-zA-Z]{2}\d">, "aD4">>();
