@@ -232,14 +232,6 @@ type MatchQuantifier2<regex extends string, test extends string> =
       : Match<regexRest, ProcessQuantifier<token, test, ParseQuantityMin<quantity>, ParseQuantityMax<quantity>>>
     : false;
 
-typeAssert<Test<ParseQuantityMin<"3,4">, "3">>();
-typeAssert<Test<ParseQuantityMax<"3,4">, "4">>();
-typeAssert<Test<ProcessQuantifier<"a", "aaaaaaax", "1", "6">, "ax">>();
-typeAssert<Test<ProcessQuantifier<"a", "aaxxxxxx", "1", "6">, "xxxxxx">>();
-typeAssert<Test<ProcessQuantifier<"a", "axxxxxxx", "2", "6">, never>>();
-assertMatch<MatchQuantifier2<"[a-zA-Z]{4,5}", "aaDSa">>();
-assertNoMatch<MatchQuantifier2<"[a-zA-Z]{4,5}", "aaDSDa">>();
-
 
 // ------------------------------------------------------------------------------------------------- Range groups --- //
 type IsCharRangeGroup<regex extends string> = regex extends `[${string}]${string}` ? true : false;
@@ -307,11 +299,11 @@ type Regex<S extends string> =
 
 
                                                                       //////////////////////////////////////////////////
-                                                                          /////////////////////////////// Experiments //
+                                                                          /////////////////////INSIGHTFUL EXPERIMENTS //
                                                                               //////////////////////////////////////////
-type X = "[a]" extends `[${infer A}]${infer B}` ? [A, B] : never;
-type Y = "abcdef" extends `${infer A}${infer B}` ? [A, B] : never;
-type Z = "a" extends `${infer A}${infer B}` ? [A, B] : never;
+type X = "[a]" extends `[${infer A}]${infer B}` ? [A, B] : never; // ["a", ""]
+type Y = "abcdef" extends `${infer A}${infer B}` ? [A, B] : never; // ["a", "bcdef"]
+type Z = "a" extends `${infer A}${infer B}` ? [A, B] : never; // ["a", ""]
 
 
 
@@ -337,6 +329,14 @@ function assertNoMatch<T extends false>() {}
                                                                       //////////////////////////////////////////////////
                                                                           //////////////////////////////// UNIT TESTS //
                                                                               //////////////////////////////////////////
+typeAssert<Test<ParseQuantityMin<"3,4">, "3">>();
+typeAssert<Test<ParseQuantityMax<"3,4">, "4">>();
+typeAssert<Test<ProcessQuantifier<"a", "aaaaaaax", "1", "6">, "ax">>();
+typeAssert<Test<ProcessQuantifier<"a", "aaxxxxxx", "1", "6">, "xxxxxx">>();
+typeAssert<Test<ProcessQuantifier<"a", "axxxxxxx", "2", "6">, never>>();
+assertMatch<MatchQuantifier2<"[a-zA-Z]{4,5}", "aaDSa">>();
+assertNoMatch<MatchQuantifier2<"[a-zA-Z]{4,5}", "aaDSDa">>();
+
 typeAssert<TestBothWays<Regex<"">, "">>();
 typeAssert<TestBothWays<Regex<"[abc]">, "a" | "b" | "c">>();
 typeAssert<TestBothWays<Regex<"\w\d\s">, `${word}${digit}${whitespace}`>>();
