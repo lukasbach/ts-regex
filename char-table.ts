@@ -33,7 +33,7 @@ export interface CharTable {
   "31": never,
   "32": " ",
   "33": "!",
-  "34": "",
+  "34": "\"",
   "35": "#",
   "36": "$",
   "37": "%",
@@ -127,4 +127,8 @@ export interface CharTable {
   "125": "}",
   "126": "~",
   "127": never,
+}
+
+export type InvertedCharTable = {
+  [P in keyof CharTable as CharTable[P]]: P
 }

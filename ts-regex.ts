@@ -1,29 +1,8 @@
 // https://support.bettercloud.com/s/article/Creating-your-own-Custom-Regular-Expression-bc72153
 
-import { CharTable } from "./char-table";
+import { CharTable, InvertedCharTable } from './char-table';
 
 // utils
-type whitespace = "\n" | " " | "    ";
-type digit = "0" | "1" | "2" | "3" | "4" | "5" | "6" | "7" | "8" | "9";
-type word = digit | "a" | "b" | "c" | "d" | "e" | "f" | "g" | "h"; // TODO
-type anyChar = whitespace | digit | word;
-
-type IsWhitespace<str extends string> = str extends whitespace ? true : false;
-type IsDigit<str extends string> = str extends digit ? true : false;
-type IsWord<str extends string> = str extends word ? true : false;
-type IsAnyChar<str extends string> = str extends anyChar ? true : false;
-
-type numberString = `${number}`;
-type IsNumberString<str extends string> = str extends numberString ? true : false;
-
-type CharRange<S extends string> =
-    S extends `${infer A}-${infer B}${infer C}` // TODO range
-    ? `${C}`
-    : S extends `${infer A}${infer B}`
-    ? A | CharRange<B>
-    : S extends anyChar
-    ? S
-    : never;
 
 // counter logic
 type DecreaseDigitMap = {
@@ -39,17 +18,17 @@ type DecreaseDigitMap = {
 };
 
 type Decrease<T extends string> =
-    T extends `0${infer A}`
-    ? Decrease<A>
-    : T extends ""
-    ? ""
-    : T extends keyof DecreaseDigitMap
-    ? DecreaseDigitMap[T]
-    : T extends `${infer A}0`
-    ? (Decrease<A> extends 0 ? "9" : `${Decrease<A>}9`)
-    : T extends `${infer A}${infer B}`
-    ? `${A}${Decrease<B>}`
-    : "0";
+  T extends `0${infer A}`
+  ? Decrease<A>
+  : T extends ""
+  ? ""
+  : T extends keyof DecreaseDigitMap
+  ? DecreaseDigitMap[T]
+  : T extends `${infer A}0`
+  ? (Decrease<A> extends 0 ? "9" : `${Decrease<A>}9`)
+  : T extends `${infer A}${infer B}`
+  ? `${A}${Decrease<B>}`
+  : "0";
 
 type IncreaseDigitMap = {
     "0": "1",
@@ -74,14 +53,42 @@ type Increase<T extends string> =
   ? `${A}${Increase<B>}`
   : "0";
 
-
 // range logic
 type CharTableRange<from extends string, to extends string> =
   from extends to
-  ? never
+  ? (from extends keyof CharTable ? CharTable[from] : never)
   : from extends keyof CharTable
   ? CharTable[from] | CharTableRange<Increase<from>, to>
   : CharTableRange<Increase<from>, to>;
+
+type IsKeyofCharTable<T extends string> =
+  T extends keyof CharTable ? true : false;
+type IsKeyofInvertedCharTable<T extends string> =
+  T extends keyof InvertedCharTable ? true : false;
+type CharRange<range extends string> =
+  range extends `${infer from}-${infer to}${infer rest}`
+    ? from extends keyof InvertedCharTable
+      ? to extends keyof InvertedCharTable
+        ? CharTableRange<InvertedCharTable[from], InvertedCharTable[to]> | CharRange<rest>
+        : never
+      : never
+    : range extends `${infer char}${infer rest}`
+      ? char | CharRange<rest>
+      : never;
+
+// basic symbols
+type whitespace = "\n" | " " | "    ";
+type digit = CharRange<"0-9">;
+type word = CharRange<"a-zA-Z0-9">;
+type anyChar = whitespace | digit | word;
+
+type IsWhitespace<str extends string> = str extends whitespace ? true : false;
+type IsDigit<str extends string> = str extends digit ? true : false;
+type IsWord<str extends string> = str extends word ? true : false;
+type IsAnyChar<str extends string> = str extends anyChar ? true : false;
+
+type numberString = `${number}`;
+type IsNumberString<str extends string> = str extends numberString ? true : false;
 
 
 type Quantified<T extends string, count extends string> = count extends "0" ? "" : `${T}${Quantified<T, Decrease<count>>}`;
