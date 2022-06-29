@@ -199,7 +199,7 @@ interface ComponentTests {
 
 
 // ------------------------------------------------------------------------------------------------------- Groups --- //
-type Group<regex extends string> =
+type ProduceGroup<regex extends string> =
   regex extends `(${"?:" | ""}${infer groupContent})${infer rest}`
     ? `${Regex<groupContent>}${Regex<rest>}`
     : never;
@@ -223,7 +223,7 @@ type IsQuantifier<regex extends string> =
     regex extends `${infer token}{${infer quantity}}${string}`
     ? And<IsToken<token>, IsNumberString<quantity>> extends true
     ? true : false : false;
-type Quantifier<regex extends string> =
+type ProduceQuantifier<regex extends string> =
     regex extends `${infer token}{${infer quantity}}${infer rest}`
     ? `${RepeatString<Regex<token>, quantity>}${Regex<rest>}`
     : never;
@@ -265,7 +265,7 @@ type MatchQuantifier2<regex extends string, test extends string> =
 
 
 // ------------------------------------------------------------------------------------------------- Range groups --- //
-type BracketExpr<regex extends string> =
+type ProduceBracketExpr<regex extends string> =
   regex extends `[${infer range}]${infer rest}`
     ? `${CharRange<range>}${Regex<rest>}`
     : never;
@@ -304,13 +304,13 @@ type Regex<S extends string> =
     // : S extends `(${"?:" | ""}${infer A})${infer B}`
     // ? `${Regex<A>}${Regex<B>}`
 
-    IsQuantifier<S> extends true ? Quantifier<S>
-    : StartsWith<S, ComponentTests["group"]> extends true ? Group<S>
+    IsQuantifier<S> extends true ? ProduceQuantifier<S>
+    : StartsWith<S, ComponentTests["group"]> extends true ? ProduceGroup<S>
 
     : S extends `${infer A}|${infer B}`
     ? Regex<A> | Regex<B>
 
-    : StartsWith<S, ComponentTests["bracketExpr"]> extends true ? BracketExpr<S>
+    : StartsWith<S, ComponentTests["bracketExpr"]> extends true ? ProduceBracketExpr<S>
 
     : S extends `\w${infer A}`
     ? `${word}${Regex<A>}`
