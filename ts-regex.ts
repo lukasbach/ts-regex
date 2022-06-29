@@ -37,6 +37,7 @@ type IsNotEmpty<T extends string> = Not<IsEmpty<T>>;
 type IsEqual<A extends string, B extends string> = And<A extends B ? true : false, B extends A ? true : false>;
 type IsInequal<A extends string, B extends string> = Not<IsEqual<A, B>>;
 type Extends<A, B> = A extends B ? true : false;
+type StartsWith<str extends string, prefix extends string> = Extends<str, `${prefix}${string}`>
 
                                                                       //////////////////////////////////////////////////
                                                                           ///////////////////////////// COUNTER LOGIC //
@@ -184,9 +185,20 @@ type IsNumberString<str extends string> = str extends numberString ? true : fals
                                                                       //////////////////////////////////////////////////
                                                                           ////////////////////////// REGEX COMPONENTS //
                                                                               //////////////////////////////////////////
+// ---------------------------------------------------------------------------------------------- Component utils --- //
+// type StartsWithComponent<componentTest extends string, regex extends string> = Extends<regex, `${componentTest}${string}`>;
+// type IsComponentToken<componentTest extends string, regex extends string> = Extends<regex, componentTest>;
+
+
+// -------------------------------------------------------------------------------------------- Component testers --- //
+interface ComponentTests {
+    group: `(${"?:" | ""}${string})`;
+    word: `\w`;
+    bracketExpr: `[${string}]`;
+}
+
+
 // ------------------------------------------------------------------------------------------------------- Groups --- //
-type IsGroup<regex extends string> = regex extends `(${"?:" | ""}${string})${string}` ? true : false;
-type IsGroupToken<regex extends string> = regex extends `(${"?:" | ""}${string})` ? true : false;
 type Group<regex extends string> =
   regex extends `(${"?:" | ""}${infer groupContent})${infer rest}`
     ? `${Regex<groupContent>}${Regex<rest>}`
@@ -194,13 +206,16 @@ type Group<regex extends string> =
 
 
 // -------------------------------------------------------------------------------------------- Character classes --- //
-type IsWordSymbol<regex extends string> = regex extends `\w${string}` ? true : false;
-type IsWordSymbolToken<regex extends string> = regex extends `\w` ? true : false;
 type WordSymbol<regex extends string> = regex extends `\w${infer rest}` ? `${word}${Regex<rest>}` : never;
 
 // TODO is-token-checks required?
 type IsToken<regex extends string> =
-  Or<IsWordSymbolToken<regex>, IsGroupToken<regex>, IsAnyChar<regex>, IsCharRangeGroupToken<regex>>;
+  Or<
+    Extends<regex, ComponentTests["word"]>,
+    Extends<regex, ComponentTests["group"]>,
+    Extends<regex, ComponentTests["bracketExpr"]>,
+    IsAnyChar<regex>
+  >;
 
 
 // -------------------------------------------------------------------------------------------------- Quantifiers --- //
@@ -250,13 +265,11 @@ type MatchQuantifier2<regex extends string, test extends string> =
 
 
 // ------------------------------------------------------------------------------------------------- Range groups --- //
-type IsCharRangeGroup<regex extends string> = regex extends `[${string}]${string}` ? true : false;
-type IsCharRangeGroupToken<regex extends string> = regex extends `[${string}]` ? true : false;
-type CharRangeGroup<regex extends string> =
+type BracketExpr<regex extends string> =
   regex extends `[${infer range}]${infer rest}`
     ? `${CharRange<range>}${Regex<rest>}`
     : never;
-type MatchCharRangeGroup<regex extends string, test extends string> =
+type MatchBracketExpr<regex extends string, test extends string> =
   regex extends `[${infer range}]${infer regexRest}`
     ? test extends `${CharRange<range>}${infer testRest}`
       ? Match<regexRest, testRest>
@@ -272,7 +285,7 @@ type Match<regex extends string, test extends string> =
   And<regex extends "" ? true : false, test extends "" ? true : false> extends true ? true
   : test extends never ? false
   : IsQuantifier<regex> extends true ? MatchQuantifier2<regex, test>
-  : IsCharRangeGroup<regex> extends true ? MatchCharRangeGroup<regex, test>
+  : StartsWith<regex, ComponentTests["bracketExpr"]> extends true ? MatchBracketExpr<regex, test>
   : false;
 
 
@@ -292,12 +305,12 @@ type Regex<S extends string> =
     // ? `${Regex<A>}${Regex<B>}`
 
     IsQuantifier<S> extends true ? Quantifier<S>
-    : IsGroup<S> extends true ? Group<S>
+    : StartsWith<S, ComponentTests["group"]> extends true ? Group<S>
 
     : S extends `${infer A}|${infer B}`
     ? Regex<A> | Regex<B>
 
-    : IsCharRangeGroup<S> extends true ? CharRangeGroup<S>
+    : StartsWith<S, ComponentTests["bracketExpr"]> extends true ? BracketExpr<S>
 
     : S extends `\w${infer A}`
     ? `${word}${Regex<A>}`
