@@ -211,6 +211,7 @@ type IsNumberString<str extends string> = str extends numberString ? true : fals
 
 // -------------------------------------------------------------------------------------------- Component testers --- //
 interface ComponentTests {
+    or: `${string}|${string}`;
     group: `(${"?:" | ""}${string})`;
     word: `\w`;
     bracketExpr: `[${string}]`;
@@ -218,10 +219,26 @@ interface ComponentTests {
 
 
 // ------------------------------------------------------------------------------------------------------- Groups --- //
+type ProduceOr<regex extends string> =
+  regex extends `${infer a}|${infer b}`
+    ? Regex<a> | Regex<b>
+    : never;
+type MatchOr<regex extends string, test extends string> =
+  regex extends `${infer a}|${infer b}`
+    ? Or<Match<a, test>, Match<b, test>>
+    : false;
+
+// ------------------------------------------------------------------------------------------------------- Groups --- //
 type ProduceGroup<regex extends string> =
   regex extends `(${"?:" | ""}${infer groupContent})${infer rest}`
-    ? `${Regex<groupContent>}${Regex<rest>}`
+    ? Regex<`${Regex<groupContent>}${rest}`>
     : never;
+type MatchGroup<regex extends string, test extends string> =
+  regex extends `(${infer group})${infer regexRest}`
+    ? test extends `${group}${infer testRest}`
+      ? Match<regexRest, testRest>
+      : false
+    : false;
 
 
 // -------------------------------------------------------------------------------------------- Character classes --- //
@@ -240,7 +257,8 @@ type IsToken<regex extends string> =
 // -------------------------------------------------------------------------------------------------- Quantifiers --- //
 type IsQuantifier<regex extends string> =
     regex extends `${infer token}{${infer quantity}}${string}`
-    ? And<IsToken<token>, IsNumberString<quantity>> extends true
+      //? And<IsToken<token>, IsNumberString<quantity>> extends true
+      ? IsNumberString<quantity> extends true
     ? true : false : false;
 type ProduceQuantifier<regex extends string> =
     regex extends `${infer token}{${infer quantity}}${infer rest}`
@@ -303,8 +321,10 @@ type MatchBracketExpr<regex extends string, test extends string> =
 type Match<regex extends string, test extends string> =
   And<regex extends "" ? true : false, test extends "" ? true : false> extends true ? true
   : test extends never ? false
+  : StartsWith<regex, ComponentTests["or"]> extends true ? MatchOr<regex, test>
   : IsQuantifier<regex> extends true ? MatchQuantifier2<regex, test>
   : StartsWith<regex, ComponentTests["bracketExpr"]> extends true ? MatchBracketExpr<regex, test>
+  : StartsWith<regex, ComponentTests["group"]> extends true ? MatchGroup<regex, test>
   : false;
 
 
@@ -314,6 +334,7 @@ type Match<regex extends string, test extends string> =
                                                                           //////////////////////////////// REGEX TYPE //
                                                                               //////////////////////////////////////////
 type Regex<S extends string> =
+    false extends true ? never // just for syntax so we can start the next line with a :
     // S extends `${infer A}{${infer B}}${infer C}`
     // ? `${Quantified<Regex<A>, B>}${Regex<C>}`
     // : S extends `(${"?:" | ""}${infer A}){${infer B}}${infer C}`
@@ -323,21 +344,22 @@ type Regex<S extends string> =
     // : S extends `(${"?:" | ""}${infer A})${infer B}`
     // ? `${Regex<A>}${Regex<B>}`
 
-    IsQuantifier<S> extends true ? ProduceQuantifier<S>
     : StartsWith<S, ComponentTests["group"]> extends true ? ProduceGroup<S>
+    : StartsWith<S, ComponentTests["or"]> extends true ? ProduceOr<S>
+    : IsQuantifier<S> extends true ? ProduceQuantifier<S>
 
     : S extends `${infer A}|${infer B}`
     ? Regex<A> | Regex<B>
 
     : StartsWith<S, ComponentTests["bracketExpr"]> extends true ? ProduceBracketExpr<S>
 
-    : S extends `\w${infer A}`
+    : S extends `\\w${infer A}`
     ? `${word}${Regex<A>}`
 
-    : S extends `\d${infer A}`
+    : S extends `\\d${infer A}`
     ? `${digit}${Regex<A>}`
 
-    : S extends `\s${infer A}`
+    : S extends `\\s${infer A}`
     ? `${whitespace}${Regex<A>}`
 
     : S extends `.${infer A}`
@@ -387,12 +409,17 @@ assertNoMatch<MatchQuantifier2<"[a-zA-Z]{4,5}", "aaDSDa">>();
 
 typeAssert<TestBothWays<Regex<"">, "">>();
 typeAssert<TestBothWays<Regex<"[abc]">, "a" | "b" | "c">>();
-typeAssert<TestBothWays<Regex<"\w\d\s">, `${word}${digit}${whitespace}`>>();
-typeAssert<Test<Regex<"\w\d\s">, "a3 ">>();
-typeAssert<Test<Regex<"[abc]|\dxx">, "a" | "b" | "c" | `${digit}xx`>>();
+typeAssert<TestBothWays<Regex<"a|b|c">, "a" | "b" | "c">>();
+typeAssert<TestBothWays<Regex<"abc|b|c">, "abc" | "b" | "c">>();
+typeAssert<TestBothWays<Regex<"(b{2})|d">, "d" | "bb">>();
+typeAssert<TestBothWays<Regex<"abc|(b{2})|(d|ef)">, "abc" | "bb" | "d" | "ef">>();
+typeAssert<TestBothWays<Regex<"abc|(bb(c|d))">, "abc" | "bbc" | "bbd">>();
+typeAssert<TestBothWays<Regex<"\\w\\d\\s">, `${word}${digit}${whitespace}`>>();
+typeAssert<Test<Regex<"\\w\\d\\s">, "a3 ">>();
+typeAssert<Test<Regex<"[abc]|\\dxx">, "a" | "b" | "c" | `${digit}xx`>>();
 typeAssert<Test<Regex<"(ab){4}">, "abababab">>();
 typeAssert<Test<Regex<"a{10}">, "aaaaaaaaaa">>();
-typeAssert<Test<Regex<"[a-zA-Z]{2}\d">, "aD4">>();
+typeAssert<Test<Regex<"[a-zA-Z]{2}\\d">, "aD4">>();
 
 assertMatch<Match<"", "">>();
 assertMatch<Match<"[abc]", "a">>();
