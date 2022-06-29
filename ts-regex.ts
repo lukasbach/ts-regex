@@ -20,6 +20,25 @@ type DemoNegative03 = Match<"(\w{5}123)|\d", "xxx">;
 
 
                                                                       //////////////////////////////////////////////////
+                                                                          ///////////////////////////////// GUIDELINE //
+                                                                              //////////////////////////////////////////
+/**
+ * # Recurring semantics
+ * - Component: regex syntax component, such as groups, bracket expressions, ...
+ * - Producer method, i.e. `ProduceGroup`: A type that takes a regex, processes the next token,
+ *   and produces all strings that match that token, and continues to process the remaining string
+ *   with the general `Regex` producer.
+ * - Matcher method, i.e. `MatchGroup`: takes a regex and a test string, matches if the next token
+ *   in both match, and if so, continues to match the rest with the general `Match` matcher.
+ * - Component tester, i.e. anything in `ComponentTests` as well as `isXxx` methods: contains a general
+ *   string that matches the component, for example `[${string}]` for a bracket expression.
+ *   Match with
+ *   - `Extends<token, ComponentTests["xxx"]>` to test if a token matches that component, or
+ *   - `StartsWith<regex, ComponentTests["xxx"]>` to test if the next token in a regex matches that component.
+ */
+
+
+                                                                      //////////////////////////////////////////////////
                                                                           ///////////////////////////////// UTILITIES //
                                                                               //////////////////////////////////////////
 
