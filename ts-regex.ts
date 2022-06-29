@@ -218,7 +218,7 @@ interface ComponentTests {
 }
 
 
-// ------------------------------------------------------------------------------------------------------- Groups --- //
+// ----------------------------------------------------------------------------------------------------------- Or --- //
 type ProduceOr<regex extends string> =
   regex extends `${infer a}|${infer b}`
     ? Regex<a> | Regex<b>
@@ -231,14 +231,43 @@ type MatchOr<regex extends string, test extends string> =
 // ------------------------------------------------------------------------------------------------------- Groups --- //
 type ProduceGroup<regex extends string> =
   regex extends `(${"?:" | ""}${infer groupContent})${infer rest}`
-    ? Regex<`${Regex<groupContent>}${rest}`>
+// TODO    ? ProduceRemainingGroup<groupContent, rest>
+     ? Regex<`${Regex<groupContent>}${rest}`>
+//    ? `${Regex<groupContent>}${Regex<rest>}`
     : never;
+type ProduceRemainingGroup<groupContent extends string, rest extends string> =
+    rest extends `${infer remainingGroup})${infer actualRest}`
+      ? ProduceRemainingGroup<`${ groupContent })${ remainingGroup }`, actualRest>
+      // : [groupContent, rest];
+      // : Regex<`${Regex<groupContent>}${rest}`>;
+      : `${Regex<groupContent>}${rest}`;
+// ProduceRemainingGroup accounts for the case of nested groups, since ProduceGroup stops at the first occurance
+// of a closing bracket.
+
 type MatchGroup<regex extends string, test extends string> =
   regex extends `(${infer group})${infer regexRest}`
-    ? test extends `${group}${infer testRest}`
-      ? Match<regexRest, testRest>
+    ? test extends `${Regex<group>}${infer testRest}`
+      // ? Match<regexRest, testRest>
+      ? MatchRemainingGroup<group, regexRest, testRest>
       : false
     : false;
+type MatchRemainingGroup<group extends string, regexRest extends string, test extends string> =
+  regexRest extends `${infer remainingGroup})${infer actualRest}`
+    ? MatchRemainingGroup<`${ group })${ remainingGroup }`, actualRest, test>
+    : Match<regexRest, test>;
+// TODO MatchRemainingGroup
+
+type testsad = ProduceGroup<"(bb(c|d)ee)xx">; // ["bb(c|d)ee", "xx"]
+type testsad2 = ProduceGroup<"bb(c|d)ee">; // ["bb(c|d)ee", "xx"]
+type testsad3 = ProduceGroup<"(c|d)ee">; // ["c|d", "ee"]
+type inner = ProduceGroup<"(c|d)ee">; // ["c|d", "ee"]
+type yoo = Regex<"c|d">;
+
+type matchTest = Match<"abc|(bb(c|d))", "bbc">;
+type matchTestx = Match<"bb(c|d)", "bbc">;
+type matchTest2 = StartsWith<"abc|(bb(c|d))", ComponentTests["group"]>;
+type matchTest3 = StartsWith<"abc|(bb(c|d))", ComponentTests["or"]>;
+type matchTest4 = MatchOr<"abc|(bb(c|d))", "abc">;
 
 
 // -------------------------------------------------------------------------------------------- Character classes --- //
@@ -321,11 +350,19 @@ type MatchBracketExpr<regex extends string, test extends string> =
 type Match<regex extends string, test extends string> =
   And<regex extends "" ? true : false, test extends "" ? true : false> extends true ? true
   : test extends never ? false
+  : StartsWith<regex, ComponentTests["group"]> extends true ? MatchGroup<regex, test>
   : StartsWith<regex, ComponentTests["or"]> extends true ? MatchOr<regex, test>
   : IsQuantifier<regex> extends true ? MatchQuantifier2<regex, test>
   : StartsWith<regex, ComponentTests["bracketExpr"]> extends true ? MatchBracketExpr<regex, test>
-  : StartsWith<regex, ComponentTests["group"]> extends true ? MatchGroup<regex, test>
+  : StartsWith<regex, anyChar> extends true ? MatchRegularChar<regex, test>
   : false;
+
+type MatchRegularChar<regex extends string, test extends string> =
+  regex extends `${infer regexChar}${infer regexRest}`
+    ? test extends `${infer testChar}${infer testRest}`
+      ? And<Extends<regexChar, testChar>, Match<regexRest, testRest>>
+      : false
+    : false;
 
 
 
@@ -344,12 +381,11 @@ type Regex<S extends string> =
     // : S extends `(${"?:" | ""}${infer A})${infer B}`
     // ? `${Regex<A>}${Regex<B>}`
 
+    // : StartsWith<S, anyChar> extends true ? (S extends `${infer char}${infer rest}` ? `${char}${Regex<rest>}` : never)
     : StartsWith<S, ComponentTests["group"]> extends true ? ProduceGroup<S>
     : StartsWith<S, ComponentTests["or"]> extends true ? ProduceOr<S>
     : IsQuantifier<S> extends true ? ProduceQuantifier<S>
 
-    : S extends `${infer A}|${infer B}`
-    ? Regex<A> | Regex<B>
 
     : StartsWith<S, ComponentTests["bracketExpr"]> extends true ? ProduceBracketExpr<S>
 
@@ -364,8 +400,9 @@ type Regex<S extends string> =
 
     : S extends `.${infer A}`
     ? `${anyChar}${Regex<A>}`
-    : S;
 
+    // : S extends `${infer char}${infer rest}` ? `${char}${Regex<rest>}` : S;
+    : S;
 
 
                                                                       //////////////////////////////////////////////////
@@ -422,9 +459,16 @@ typeAssert<Test<Regex<"a{10}">, "aaaaaaaaaa">>();
 typeAssert<Test<Regex<"[a-zA-Z]{2}\\d">, "aD4">>();
 
 assertMatch<Match<"", "">>();
+assertMatch<Match<"abc", "abc">>();
 assertMatch<Match<"[abc]", "a">>();
 assertMatch<Match<"[abc][def]", "ad">>();
 assertMatch<Match<"[a-z][A-Z0-9][0-9]", "aD4">>();
 assertMatch<Match<"[a-z]{20}", "aaaaaaaaaaaaaaaaaaaa">>();
+
+assertMatch<Match<"abc|(bb(c|d))", "abc">>();
+assertMatch<Match<"abc|(bb(c|d))", "bbc">>();
+assertMatch<Match<"abc|(bb(c|d))", "bbd">>();
+assertNoMatch<Match<"abc|(bb(c|d))", "abc">>();
+type asd = Match<"abc|(bb(c|d))", "bbd">;
 
 assertNoMatch<Match<"[abc][def]", "ag">>();
