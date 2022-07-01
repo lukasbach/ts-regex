@@ -58,10 +58,13 @@ type IsInequal<A extends string, B extends string> = Not<IsEqual<A, B>>;
 type Extends<A, B> = A extends B ? true : false;
 type StartsWith<str extends string, prefix extends string> = Extends<str, `${prefix}${string}`>;
 type IfElse<cond extends boolean, then extends any, otherwise extends any> = cond extends true ? then : otherwise;
+type Contains<str extends string, substring extends string> = Extends<str, `${string}${substring}${string}`>;
 
 // Nullish Coalescing
 type NuCo<Value, Otherwise> =
   IfElse<Or<Extends<Value, "">, Extends<Value, false>, Extends<Value, never>>, Otherwise, Value>;
+
+type NotNullish<value> = value extends null | false ? never : value;
 
                                                                       //////////////////////////////////////////////////
                                                                           ///////////////////////////// COUNTER LOGIC //
@@ -232,8 +235,20 @@ type ProduceOr<regex extends string> =
     : never;
 type MatchOr<regex extends string, test extends someTest> =
   regex extends `${infer a}|${infer b}`
-    ? Or<Match<a, test>, Match<b, test>>
+    ? NotNullish<
+      NuCo<
+        Or<Match<a, test>, Match<b, test>>,
+        Match<a, test> | Match<b, test>
+        >
+      >
     : false;
+type IsOr<regex extends string> =
+  regex extends `${infer start}|${string}`
+    ? Not<Contains<start, "(">>
+    : false;
+type test = 'bb(c|d)' extends `${infer start}|${string}` ? start : never;
+type testxasdasd = MatchOr<"b|c", "be">
+
 
 // ------------------------------------------------------------------------------------------------------- Groups --- //
 type ProduceGroup<regex extends string> =
@@ -259,16 +274,39 @@ type MatchGroup<regex extends string, test extends someTest> =
 type MatchRemainingGroup<regexGroup extends string, regexRest extends string, test extends someTest> =
     regexRest extends `${infer regexRest1})${infer regexRest2}`
     ? MatchRemainingGroup<`${regexGroup})${regexRest1}`, regexRest2, test>
-    : Match<regexGroup, test> extends true ? true : Match<regexRest, NuCo<Match<regexGroup, test>, test>>;
+    /// : /*Match<regexGroup, test> extends true ? true :*/ Match<regexRest, /*NuCo<*/Match<regexGroup, test>/*, test>*/>;
+    : Match<regexRest, IfElse<StartsWith<regexRest, "|">, NuCo<Match<regexGroup, test>, test>, Match<regexGroup, test>>>;
+
+// "(b)c", "bc"
+type debug10 = "(b)c" extends `(${infer regexGroup})${infer regexRest}` ? [regexGroup, regexRest] : never;
+type partialMatch = Match<"b", "bc">
+
+
+
+
 
 type sampleRegex = "(a|(b|c)|d)z";
-type groupTest1 = MatchGroup<sampleRegex, "a">;
-type groupTest2 = MatchGroup<sampleRegex, "b">;
-type groupTest3 = MatchGroup<sampleRegex, "c">;
-type groupTest4 = MatchGroup<sampleRegex, "d">;
-type groupTest5 = MatchGroup<sampleRegex, "e">;
+type groupTest1 = MatchGroup<sampleRegex, "az">;
+type groupTest2 = MatchGroup<sampleRegex, "bz">;
+type groupTest3 = MatchGroup<sampleRegex, "cz">;
+type groupTest4 = MatchGroup<sampleRegex, "dz">;
+type groupTest5 = MatchGroup<sampleRegex, "ez">;
 
-type debug = Match<"bb(c|d)", "bbc">;
+type debug = Match<"e(g|(ez))x", "egx">;
+type debug20 = Match<"(g|(e))x", "gx">;
+type debug21 = "(g|(e))x" extends `(${infer regexGroup})${infer regexRest}` ? [regexGroup, regexRest] : never;
+type debug22 = ")x" extends `${infer regexRest1})${infer regexRest2}` ? [regexRest1, regexRest2] : never;
+type debug23 = MatchRemainingGroup<`${"g|(e"})`, "x", "gx">
+type debug24 = "x" extends `${infer regexRest1})${infer regexRest2}` ? [regexRest1, regexRest2] : never;
+type debug25 = Match<"x", NuCo<Match<`${"g|(e"})`, "gx">, "gx">>;
+type debug26 = NuCo<Match<`g|(e)`, "gx">, "gx">;
+type debug27 = Match<`g|(e)`, "gx">;
+type debug28 = Match<`(e)`, "gx">;
+type debug29 = Match<`e`, "gx">;
+type debug30 = Match<`(e)`, "gx">;
+type debug31 = MatchRemainingGroup<`e`, "", "gx">;
+type debug32 = Match<"", NuCo<Match<`e`, "gx">, "gx">>;
+type debug33 = NuCo<Match<`e`, "gx">, "gx">;
 
 type matchTest = Match<"abc|(bb(c|d))", "bbc">;
 type matchTestx = Match<"bb(c|d)", "bbc">;
@@ -360,19 +398,20 @@ type Match<regex extends string, test extends string | boolean> =
   : regex extends "" ? test
   : test extends never ? false
   : StartsWith<regex, ComponentTests["group"]> extends true ? MatchGroup<regex, test>
-  : StartsWith<regex, ComponentTests["or"]> extends true ? MatchOr<regex, test>
+  : IsOr<regex> extends true ? MatchOr<regex, test>
   : IsQuantifier<regex> extends true ? MatchQuantifier2<regex, test>
   : StartsWith<regex, ComponentTests["bracketExpr"]> extends true ? MatchBracketExpr<regex, test>
   : StartsWith<regex, anyChar> extends true ? MatchRegularChar<regex, test>
   : false;
 
-type debug2 = StartsWith<'bb(c|d)', ComponentTests["or"]>;
+
+type debug2 = Match<"(g|x)x", "gx">;
 
 
 type MatchRegularChar<regex extends string, test extends someTest> =
   regex extends `${infer regexChar}${infer regexRest}`
     ? test extends `${infer testChar}${infer testRest}`
-      ? And<Extends<regexChar, testChar>, Match<regexRest, testRest>>
+      ? IfElse<Extends<regexChar, testChar>, Match<regexRest, testRest>, false>
       : false
     : false;
 
@@ -413,7 +452,6 @@ type Regex<S extends string> =
 
     // : S extends `${infer char}${infer rest}` ? `${char}${Regex<rest>}` : S;
     : S;
-
 
                                                                       //////////////////////////////////////////////////
                                                                           /////////////////////INSIGHTFUL EXPERIMENTS //
@@ -478,7 +516,14 @@ assertMatch<Match<"[a-z]{20}", "aaaaaaaaaaaaaaaaaaaa">>();
 assertMatch<Match<"abc|(bb(c|d))", "abc">>();
 assertMatch<Match<"abc|(bb(c|d))", "bbc">>();
 assertMatch<Match<"abc|(bb(c|d))", "bbd">>();
-assertNoMatch<Match<"abc|(bb(c|d))", "abc">>();
-type asd = Match<"abc|(bb(c|d))", "bbd">;
+assertNoMatch<Match<"abc|(bb(c|d))", "bba">>();
 
+assertMatch<Match<"[abc][def]", "bd">>();
 assertNoMatch<Match<"[abc][def]", "ag">>();
+
+assertMatch<Match<"ab(d|e)(g|(e(f|h)z))x", "abegx">>();
+assertMatch<Match<"abe(g|(e(f|h)z))x", "abegx">>();
+assertMatch<Match<"e(g|(ez))x", "egx">>();
+assertMatch<Match<"a(b)c", "abc">>();
+
+assertMatch<Match<"(ab){2}", "abab">>();
