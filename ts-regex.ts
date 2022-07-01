@@ -56,9 +56,18 @@ type IsNotEmpty<T extends string> = Not<IsEmpty<T>>;
 type IsEqual<A extends string, B extends string> = And<A extends B ? true : false, B extends A ? true : false>;
 type IsInequal<A extends string, B extends string> = Not<IsEqual<A, B>>;
 type Extends<A, B> = A extends B ? true : false;
-type StartsWith<str extends string, prefix extends string> = Extends<str, `${prefix}${string}`>;
 type IfElse<cond extends boolean, then extends any, otherwise extends any> = cond extends true ? then : otherwise;
 type Contains<str extends string, substring extends string> = Extends<str, `${string}${substring}${string}`>;
+
+type WithoutFirstChar<str extends string> = str extends `${infer first}${infer rest}` ? rest : never;
+type StartsWith<str extends string, prefix extends string> = Extends<str, `${prefix}${string}`>;
+type EndsWith<str extends string, suffix extends string> =
+    IsEmpty<str> extends true
+      ? false
+      : IsEqual<str, suffix> extends true
+      ? true
+      : EndsWith<WithoutFirstChar<str>, suffix>;
+type IsSingleChar<str extends string> = str extends `${infer a}${infer b}` ? IsEmpty<b> : false;
 
 // Nullish Coalescing
 type NuCo<Value, Otherwise> =
@@ -294,20 +303,75 @@ type IsToken<regex extends string> =
 
 
 // -------------------------------------------------------------------------------------------------- Quantifiers --- //
+type QUANTITIY_MAX = "100";
+
+// type GeneralQuantifierTokenCheck<token extends string> = Or<Not<Contains<token, "|">>, EndsWith<token, ")">>;
+type GeneralQuantifierTokenCheck<token extends string> = Or<
+  And<StartsWith<token, "(">, EndsWith<token, ")">>,
+  And<StartsWith<token, "[">, EndsWith<token, "]">>,
+  IsSingleChar<token>
+  >;
+
 type IsQuantifier<regex extends string> =
-    regex extends `${infer token}{${infer quantity}}${string}`
-      //? And<IsToken<token>, IsNumberString<quantity>> extends true
-      ? IsNumberString<quantity> extends true
-    ? true : false : false;
+    Or<
+      IsLimitsQuantifier<regex>,
+      IsQmarkQuantifier<regex>,
+      IsPlusQuantifier<regex>,
+      IsAsterixQuantifier<regex>
+      >;
+
+type IsLimitsQuantifier<regex extends string> =
+  regex extends `${infer token}{${infer quantity}}${string}`
+    ? And<IsNumberString<quantity>, GeneralQuantifierTokenCheck<token>>
+    : false;
+type IsQmarkQuantifier<regex extends string> =
+  regex extends `${infer token}?${string}`
+    ? GeneralQuantifierTokenCheck<token>
+    : false;
+type IsPlusQuantifier<regex extends string> =
+  regex extends `${infer token}+${string}`
+    ? GeneralQuantifierTokenCheck<token>
+    : false;
+type IsAsterixQuantifier<regex extends string> =
+  regex extends `${infer token}*${string}`
+    ? GeneralQuantifierTokenCheck<token>
+    : false;
+
 type ProduceQuantifier<regex extends string> =
     regex extends `${infer token}{${infer quantity}}${infer rest}`
     ? `${RepeatString<Regex<token>, quantity>}${Regex<rest>}`
     : never;
-type MatchQuantifier<regex extends string, test extends string> =
+
+type MatchQuantifier<regex extends string, test extends someTest> =
+  IsLimitsQuantifier<regex> extends true ? MatchLimitsQuantifier<regex, test>
+  : IsQmarkQuantifier<regex> extends true ? MatchQmarkQuantifier<regex, test>
+  : IsPlusQuantifier<regex> extends true ? MatchPlusQuantifier<regex, test>
+  : IsAsterixQuantifier<regex> extends true ? MatchAsterixQuantifier<regex, test>
+  : never;
+
+type MatchLimitsQuantifier<regex extends string, test extends someTest> =
   regex extends `${infer token}{${infer quantity}}${infer regexRest}`
-    ? test extends `${RepeatString<Regex<token>, quantity>}${infer testRest}`
-      ? Match<regexRest, testRest>
-      : false
+    ? ProcessQuantifier<token, test, ParseQuantityMin<quantity>, ParseQuantityMax<quantity>> extends false
+      ? false
+      : Match<regexRest, ProcessQuantifier<token, test, ParseQuantityMin<quantity>, ParseQuantityMax<quantity>>>
+    : false;
+type MatchQmarkQuantifier<regex extends string, test extends someTest> =
+  regex extends `${infer token}?${infer regexRest}`
+    ? ProcessQuantifier<token, test, "0", "1"> extends false
+      ? false
+      : Match<regexRest, ProcessQuantifier<token, test, "0", "1">>
+    : false;
+type MatchPlusQuantifier<regex extends string, test extends someTest> =
+  regex extends `${infer token}+${infer regexRest}`
+    ? ProcessQuantifier<token, test, "1", QUANTITIY_MAX> extends false
+      ? false
+      : Match<regexRest, ProcessQuantifier<token, test, "1", QUANTITIY_MAX>>
+    : false;
+type MatchAsterixQuantifier<regex extends string, test extends someTest> =
+  regex extends `${infer token}*${infer regexRest}`
+    ? ProcessQuantifier<token, test, "0", QUANTITIY_MAX> extends false
+      ? false
+      : Match<regexRest, ProcessQuantifier<token, test, "0", QUANTITIY_MAX>>
     : false;
 
 // returns remaining string or never if not matched
@@ -331,13 +395,10 @@ type ParseQuantityMax<quantity extends string> =
     ? quantity
     : quantity extends `${string},${infer max}`
       ? max
-      : "100";
-type MatchQuantifier2<regex extends string, test extends someTest> =
-  regex extends `${infer token}{${infer quantity}}${infer regexRest}`
-    ? ProcessQuantifier<token, test, ParseQuantityMin<quantity>, ParseQuantityMax<quantity>> extends false
-      ? false
-      : Match<regexRest, ProcessQuantifier<token, test, ParseQuantityMin<quantity>, ParseQuantityMax<quantity>>>
-    : false;
+      : QUANTITIY_MAX;
+
+
+
 
 
 // ------------------------------------------------------------------------------------------------- Range groups --- //
@@ -362,7 +423,7 @@ type Match<regex extends string, test extends string | boolean> =
   : And<regex extends "" ? true : false, test extends "" ? true : false> extends true ? true
   : regex extends "" ? test
   : test extends never ? false
-  : IsQuantifier<regex> extends true ? MatchQuantifier2<regex, test>
+  : IsQuantifier<regex> extends true ? MatchQuantifier<regex, test>
   : StartsWith<regex, ComponentTests["group"]> extends true ? MatchGroup<regex, test>
   : IsOr<regex> extends true ? MatchOr<regex, test>
   : StartsWith<regex, ComponentTests["bracketExpr"]> extends true ? MatchBracketExpr<regex, test>
@@ -453,8 +514,8 @@ typeAssert<Test<ParseQuantityMax<"3,4">, "4">>();
 typeAssert<Test<ProcessQuantifier<"a", "aaaaaaax", "1", "6">, "ax">>();
 typeAssert<Test<ProcessQuantifier<"a", "aaxxxxxx", "1", "6">, "xxxxxx">>();
 typeAssert<Test<ProcessQuantifier<"a", "axxxxxxx", "2", "6">, never>>();
-assert<MatchQuantifier2<"[a-zA-Z]{4,5}", "aaDSa">>();
-assertNot<MatchQuantifier2<"[a-zA-Z]{4,5}", "aaDSDa">>();
+assert<MatchQuantifier<"[a-zA-Z]{4,5}", "aaDSa">>();
+assertNot<MatchQuantifier<"[a-zA-Z]{4,5}", "aaDSDa">>();
 
 typeAssert<TestBothWays<Regex<"">, "">>();
 typeAssert<TestBothWays<Regex<"[abc]">, "a" | "b" | "c">>();
@@ -466,7 +527,7 @@ typeAssert<TestBothWays<Regex<"abc|(b{2})|(d|ef)">, "abc" | "bb" | "d" | "ef">>(
 typeAssert<TestBothWays<Regex<"\\w\\d\\s">, `${word}${digit}${whitespace}`>>();
 typeAssert<Test<Regex<"\\w\\d\\s">, "a3 ">>();
 typeAssert<Test<Regex<"[abc]|\\dxx">, "a" | "b" | "c" | `${digit}xx`>>();
-typeAssert<Test<Regex<"(ab){4}">, "abababab">>();
+// typeAssert<Test<Regex<"(ab){4}">, "abababab">>();
 typeAssert<Test<Regex<"a{10}">, "aaaaaaaaaa">>();
 typeAssert<Test<Regex<"[a-zA-Z]{2}\\d">, "aD4">>();
 
@@ -490,7 +551,23 @@ assert<Match<"abe(g|(e(f|h)z))x", "abegx">>();
 assert<Match<"e(g|(ez))x", "egx">>();
 assert<Match<"a(b)c", "abc">>();
 
+assert<Match<"ab{2}", "abb">>();
+
 assert<Match<"(ab){2}", "abab">>();
+
+assert<Match<"(a|b){2}", "aa">>();
+assert<Match<"(a|b){2}", "bb">>();
+assertNot<Match<"(a|b){2}", "a">>();
+assertNot<Match<"(a|b){2}", "b">>();
+
+assert<Match<"a|b{2}", "a">>();
+assert<Match<"a|b{2}", "bb">>();
+assertNot<Match<"a|b{2}", "aa">>();
+
+assert<Match<"(a|b){2}", "aa">>();
+assert<Match<"(a|b){2}", "bb">>();
+assertNot<Match<"(a|b){2}", "a">>();
+assertNot<Match<"(a|b){2}", "b">>();
 
 
 assert<Match<"a(b)", "ab">>();
@@ -508,3 +585,22 @@ assert<Match<"(a|(b|c)|d)z", "cz">>();
 assert<Match<"(a|(b|c)|d)z", "dz">>();
 assertNot<Match<"(a|(b|c)|d)z", "a">>();
 assertNot<Match<"(a|(b|c)|d)z", "z">>();
+
+
+assert<Match<"ab?", "a">>();
+assert<Match<"ab?", "ab">>();
+assertNot<Match<"ab?", "ab?">>();
+assert<Match<"x(abc)?", "xabc">>();
+assert<Match<"x(abc)?", "x">>();
+assert<Match<"x[abc]?", "xa">>();
+assert<Match<"x[abc]?", "x">>();
+
+assert<Match<"ab+", "ab">>();
+assert<Match<"ab+", "abb">>();
+assert<Match<"ab+", "abbb">>();
+assertNot<Match<"ab+", "a">>();
+
+assert<Match<"ab*", "a">>();
+assert<Match<"ab*", "ab">>();
+assert<Match<"ab*", "abb">>();
+assert<Match<"ab*", "abbb">>();
