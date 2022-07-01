@@ -261,8 +261,6 @@ type ProduceRemainingGroup<groupContent extends string, rest extends string> =
       // : [groupContent, rest];
       // : Regex<`${Regex<groupContent>}${rest}`>;
       : `${Regex<groupContent>}${rest}`;
-// ProduceRemainingGroup accounts for the case of nested groups, since ProduceGroup stops at the first occurance
-// of a closing bracket.
 
 type MatchGroup<regex extends string, test extends someTest> =
   regex extends `(${infer regexGroup})${infer regexRest}`
@@ -270,10 +268,15 @@ type MatchGroup<regex extends string, test extends someTest> =
       ? MatchRemainingGroup<regexGroup, regexRest, test>
     : false;
 type MatchRemainingGroup<regexGroup extends string, regexRest extends string, test extends someTest> =
-    regexRest extends `${infer regexRest1})${infer regexRest2}`
+  regexRest extends `${infer regexRest1})${infer regexRest2}`
     ? MatchRemainingGroup<`${regexGroup})${regexRest1}`, regexRest2, test>
-    /// : /*Match<regexGroup, test> extends true ? true :*/ Match<regexRest, /*NuCo<*/Match<regexGroup, test>/*, test>*/>;
-    : Match<regexRest, IfElse<StartsWith<regexRest, "|">, NuCo<Match<regexGroup, test>, test>, Match<regexGroup, test>>>;
+    : Match<
+      regexRest,
+      IfElse<StartsWith<regexRest, "|">, NuCo<Match<regexGroup, test>, test>, Match<regexGroup, test>>
+      >;
+
+// ProduceRemainingGroup/MatchRemainingGroup accounts for the case of nested groups, since ProduceGroup
+// stops at the first occurance of a closing bracket.
 
 
 
