@@ -258,8 +258,8 @@ type ParseTerm<state extends ParserState> =
   [CountOf<state>] extends ["500"] ? never : state["lexer"] extends [] ? state : state extends never ? never :
     IncreaseStateCount<
         And<Not<MatchLookahead<ParseFactor<state>, "RIGHT_PAREN">>, Not<MatchLookahead<ParseFactor<state>, "ALT">>> extends true
-        // ? ParserState<LexerOf<DelexTerm<state>>, [...ParsedOf<state>, ...ParseFactor<state>["parsed"], ...ParseTerm<ParseFactor<state>>["parsed"]], CountOf<state>>
-        ? IncreaseStateCount<ParseTerm<ParseFactor<state>>>
+        ? ParserState<LexerOf<DelexTerm<state>>, [...ParsedOf<state>, ...ParseFactor<state>["parsed"], ...ParseTerm<ParseFactor<state>>["parsed"]], CountOf<state>>
+        // ? IncreaseStateCount<ParseTerm<ParseFactor<state>>>
         // ? AppendState<AppendState<state, ParseFactor<state>>, ParseTerm<ParseFactor<state>>>
         : ParseFactor<state>
       >;

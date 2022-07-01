@@ -56,7 +56,12 @@ type IsNotEmpty<T extends string> = Not<IsEmpty<T>>;
 type IsEqual<A extends string, B extends string> = And<A extends B ? true : false, B extends A ? true : false>;
 type IsInequal<A extends string, B extends string> = Not<IsEqual<A, B>>;
 type Extends<A, B> = A extends B ? true : false;
-type StartsWith<str extends string, prefix extends string> = Extends<str, `${prefix}${string}`>
+type StartsWith<str extends string, prefix extends string> = Extends<str, `${prefix}${string}`>;
+type IfElse<cond extends boolean, then extends any, otherwise extends any> = cond extends true ? then : otherwise;
+
+// Nullish Coalescing
+type NuCo<Value, Otherwise> =
+  IfElse<Or<Extends<Value, "">, Extends<Value, false>, Extends<Value, never>>, Otherwise, Value>;
 
                                                                       //////////////////////////////////////////////////
                                                                           ///////////////////////////// COUNTER LOGIC //
@@ -186,6 +191,8 @@ type RepeatString<text extends string, count extends string> =
                                                                       //////////////////////////////////////////////////
                                                                           ///////////////////////////// BASIC SYMBOLS //
                                                                               //////////////////////////////////////////
+type someTest = string | boolean;
+
 type whitespace = "\n" | " " | "    ";
 type digit = CharRange<"0-9">;
 type word = CharRange<"a-zA-Z0-9">;
@@ -223,7 +230,7 @@ type ProduceOr<regex extends string> =
   regex extends `${infer a}|${infer b}`
     ? Regex<a> | Regex<b>
     : never;
-type MatchOr<regex extends string, test extends string> =
+type MatchOr<regex extends string, test extends someTest> =
   regex extends `${infer a}|${infer b}`
     ? Or<Match<a, test>, Match<b, test>>
     : false;
@@ -244,24 +251,24 @@ type ProduceRemainingGroup<groupContent extends string, rest extends string> =
 // ProduceRemainingGroup accounts for the case of nested groups, since ProduceGroup stops at the first occurance
 // of a closing bracket.
 
-type MatchGroup<regex extends string, test extends string> =
-  regex extends `(${infer group})${infer regexRest}`
-    ? test extends `${Regex<group>}${infer testRest}`
+type MatchGroup<regex extends string, test extends someTest> =
+  regex extends `(${infer regexGroup})${infer regexRest}`
       // ? Match<regexRest, testRest>
-      ? MatchRemainingGroup<group, regexRest, testRest>
-      : false
+      ? MatchRemainingGroup<regexGroup, regexRest, test>
     : false;
-type MatchRemainingGroup<group extends string, regexRest extends string, test extends string> =
-  regexRest extends `${infer remainingGroup})${infer actualRest}`
-    ? MatchRemainingGroup<`${ group })${ remainingGroup }`, actualRest, test>
-    : Match<regexRest, test>;
-// TODO MatchRemainingGroup
+type MatchRemainingGroup<regexGroup extends string, regexRest extends string, test extends someTest> =
+    regexRest extends `${infer regexRest1})${infer regexRest2}`
+    ? MatchRemainingGroup<`${regexGroup})${regexRest1}`, regexRest2, test>
+    : Match<regexGroup, test> extends true ? true : Match<regexRest, NuCo<Match<regexGroup, test>, test>>;
 
-type testsad = ProduceGroup<"(bb(c|d)ee)xx">; // ["bb(c|d)ee", "xx"]
-type testsad2 = ProduceGroup<"bb(c|d)ee">; // ["bb(c|d)ee", "xx"]
-type testsad3 = ProduceGroup<"(c|d)ee">; // ["c|d", "ee"]
-type inner = ProduceGroup<"(c|d)ee">; // ["c|d", "ee"]
-type yoo = Regex<"c|d">;
+type sampleRegex = "(a|(b|c)|d)z";
+type groupTest1 = MatchGroup<sampleRegex, "a">;
+type groupTest2 = MatchGroup<sampleRegex, "b">;
+type groupTest3 = MatchGroup<sampleRegex, "c">;
+type groupTest4 = MatchGroup<sampleRegex, "d">;
+type groupTest5 = MatchGroup<sampleRegex, "e">;
+
+type debug = Match<"bb(c|d)", "bbc">;
 
 type matchTest = Match<"abc|(bb(c|d))", "bbc">;
 type matchTestx = Match<"bb(c|d)", "bbc">;
@@ -302,7 +309,7 @@ type MatchQuantifier<regex extends string, test extends string> =
 
 // returns remaining string or never if not matched
 type ProcessQuantifier<
-  regexPart extends string, test extends string, min extends string, max extends string, count extends string = "0"> =
+  regexPart extends string, test extends someTest, min extends string, max extends string, count extends string = "0"> =
   IsLargerEquals<count, max> extends true
     ? test
     : test extends `${Regex<regexPart>}${infer testRest}`
@@ -322,7 +329,7 @@ type ParseQuantityMax<quantity extends string> =
     : quantity extends `${string},${infer max}`
       ? max
       : "100";
-type MatchQuantifier2<regex extends string, test extends string> =
+type MatchQuantifier2<regex extends string, test extends someTest> =
   regex extends `${infer token}{${infer quantity}}${infer regexRest}`
     ? ProcessQuantifier<token, test, ParseQuantityMin<quantity>, ParseQuantityMax<quantity>> extends false
       ? false
@@ -335,7 +342,7 @@ type ProduceBracketExpr<regex extends string> =
   regex extends `[${infer range}]${infer rest}`
     ? `${CharRange<range>}${Regex<rest>}`
     : never;
-type MatchBracketExpr<regex extends string, test extends string> =
+type MatchBracketExpr<regex extends string, test extends someTest> =
   regex extends `[${infer range}]${infer regexRest}`
     ? test extends `${CharRange<range>}${infer testRest}`
       ? Match<regexRest, testRest>
@@ -347,8 +354,10 @@ type MatchBracketExpr<regex extends string, test extends string> =
                                                                       //////////////////////////////////////////////////
                                                                           ////////////////////////////// MATCHER TYPE //
                                                                               //////////////////////////////////////////
-type Match<regex extends string, test extends string> =
-  And<regex extends "" ? true : false, test extends "" ? true : false> extends true ? true
+type Match<regex extends string, test extends string | boolean> =
+  test extends boolean ? test
+  : And<regex extends "" ? true : false, test extends "" ? true : false> extends true ? true
+  : regex extends "" ? test
   : test extends never ? false
   : StartsWith<regex, ComponentTests["group"]> extends true ? MatchGroup<regex, test>
   : StartsWith<regex, ComponentTests["or"]> extends true ? MatchOr<regex, test>
@@ -357,14 +366,15 @@ type Match<regex extends string, test extends string> =
   : StartsWith<regex, anyChar> extends true ? MatchRegularChar<regex, test>
   : false;
 
-type MatchRegularChar<regex extends string, test extends string> =
+type debug2 = StartsWith<'bb(c|d)', ComponentTests["or"]>;
+
+
+type MatchRegularChar<regex extends string, test extends someTest> =
   regex extends `${infer regexChar}${infer regexRest}`
     ? test extends `${infer testChar}${infer testRest}`
       ? And<Extends<regexChar, testChar>, Match<regexRest, testRest>>
       : false
     : false;
-
-
 
 
                                                                       //////////////////////////////////////////////////
@@ -429,7 +439,7 @@ type TestBothWays<T, U> = [T] extends [U]
 
 function typeAssert<T extends Pass>() {}
 function assertMatch<T extends true>() {}
-function assertNoMatch<T extends false>() {}
+function assertNoMatch<T extends false | string>() {}
 
 
 
@@ -450,7 +460,7 @@ typeAssert<TestBothWays<Regex<"a|b|c">, "a" | "b" | "c">>();
 typeAssert<TestBothWays<Regex<"abc|b|c">, "abc" | "b" | "c">>();
 typeAssert<TestBothWays<Regex<"(b{2})|d">, "d" | "bb">>();
 typeAssert<TestBothWays<Regex<"abc|(b{2})|(d|ef)">, "abc" | "bb" | "d" | "ef">>();
-typeAssert<TestBothWays<Regex<"abc|(bb(c|d))">, "abc" | "bbc" | "bbd">>();
+// typeAssert<TestBothWays<Regex<"abc|(bb(c|d))">, "abc" | "bbc" | "bbd">>();
 typeAssert<TestBothWays<Regex<"\\w\\d\\s">, `${word}${digit}${whitespace}`>>();
 typeAssert<Test<Regex<"\\w\\d\\s">, "a3 ">>();
 typeAssert<Test<Regex<"[abc]|\\dxx">, "a" | "b" | "c" | `${digit}xx`>>();
