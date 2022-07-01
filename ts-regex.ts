@@ -246,8 +246,6 @@ type IsOr<regex extends string> =
   regex extends `${infer start}|${string}`
     ? Not<Contains<start, "(">>
     : false;
-type test = 'bb(c|d)' extends `${infer start}|${string}` ? start : never;
-type testxasdasd = MatchOr<"b|c", "be">
 
 
 // ------------------------------------------------------------------------------------------------------- Groups --- //
@@ -277,42 +275,6 @@ type MatchRemainingGroup<regexGroup extends string, regexRest extends string, te
     /// : /*Match<regexGroup, test> extends true ? true :*/ Match<regexRest, /*NuCo<*/Match<regexGroup, test>/*, test>*/>;
     : Match<regexRest, IfElse<StartsWith<regexRest, "|">, NuCo<Match<regexGroup, test>, test>, Match<regexGroup, test>>>;
 
-// "(b)c", "bc"
-type debug10 = "(b)c" extends `(${infer regexGroup})${infer regexRest}` ? [regexGroup, regexRest] : never;
-type partialMatch = Match<"b", "bc">
-
-
-
-
-
-type sampleRegex = "(a|(b|c)|d)z";
-type groupTest1 = MatchGroup<sampleRegex, "az">;
-type groupTest2 = MatchGroup<sampleRegex, "bz">;
-type groupTest3 = MatchGroup<sampleRegex, "cz">;
-type groupTest4 = MatchGroup<sampleRegex, "dz">;
-type groupTest5 = MatchGroup<sampleRegex, "ez">;
-
-type debug = Match<"e(g|(ez))x", "egx">;
-type debug20 = Match<"(g|(e))x", "gx">;
-type debug21 = "(g|(e))x" extends `(${infer regexGroup})${infer regexRest}` ? [regexGroup, regexRest] : never;
-type debug22 = ")x" extends `${infer regexRest1})${infer regexRest2}` ? [regexRest1, regexRest2] : never;
-type debug23 = MatchRemainingGroup<`${"g|(e"})`, "x", "gx">
-type debug24 = "x" extends `${infer regexRest1})${infer regexRest2}` ? [regexRest1, regexRest2] : never;
-type debug25 = Match<"x", NuCo<Match<`${"g|(e"})`, "gx">, "gx">>;
-type debug26 = NuCo<Match<`g|(e)`, "gx">, "gx">;
-type debug27 = Match<`g|(e)`, "gx">;
-type debug28 = Match<`(e)`, "gx">;
-type debug29 = Match<`e`, "gx">;
-type debug30 = Match<`(e)`, "gx">;
-type debug31 = MatchRemainingGroup<`e`, "", "gx">;
-type debug32 = Match<"", NuCo<Match<`e`, "gx">, "gx">>;
-type debug33 = NuCo<Match<`e`, "gx">, "gx">;
-
-type matchTest = Match<"abc|(bb(c|d))", "bbc">;
-type matchTestx = Match<"bb(c|d)", "bbc">;
-type matchTest2 = StartsWith<"abc|(bb(c|d))", ComponentTests["group"]>;
-type matchTest3 = StartsWith<"abc|(bb(c|d))", ComponentTests["or"]>;
-type matchTest4 = MatchOr<"abc|(bb(c|d))", "abc">;
 
 
 // -------------------------------------------------------------------------------------------- Character classes --- //
@@ -393,7 +355,7 @@ type MatchBracketExpr<regex extends string, test extends someTest> =
                                                                           ////////////////////////////// MATCHER TYPE //
                                                                               //////////////////////////////////////////
 type Match<regex extends string, test extends string | boolean> =
-  test extends boolean ? test
+  test extends boolean ? IfElse<Extends<regex, ''>, test, false>
   : And<regex extends "" ? true : false, test extends "" ? true : false> extends true ? true
   : regex extends "" ? test
   : test extends never ? false
@@ -405,7 +367,6 @@ type Match<regex extends string, test extends string | boolean> =
   : false;
 
 
-type debug2 = Match<"(g|x)x", "gx">;
 
 
 type MatchRegularChar<regex extends string, test extends someTest> =
@@ -476,8 +437,8 @@ type TestBothWays<T, U> = [T] extends [U]
     : { actual: T; expected: U };
 
 function typeAssert<T extends Pass>() {}
-function assertMatch<T extends true>() {}
-function assertNoMatch<T extends false | string>() {}
+function assert<T extends true>() {}
+function assertNot<T extends false | string>() {}
 
 
 
@@ -489,8 +450,8 @@ typeAssert<Test<ParseQuantityMax<"3,4">, "4">>();
 typeAssert<Test<ProcessQuantifier<"a", "aaaaaaax", "1", "6">, "ax">>();
 typeAssert<Test<ProcessQuantifier<"a", "aaxxxxxx", "1", "6">, "xxxxxx">>();
 typeAssert<Test<ProcessQuantifier<"a", "axxxxxxx", "2", "6">, never>>();
-assertMatch<MatchQuantifier2<"[a-zA-Z]{4,5}", "aaDSa">>();
-assertNoMatch<MatchQuantifier2<"[a-zA-Z]{4,5}", "aaDSDa">>();
+assert<MatchQuantifier2<"[a-zA-Z]{4,5}", "aaDSa">>();
+assertNot<MatchQuantifier2<"[a-zA-Z]{4,5}", "aaDSDa">>();
 
 typeAssert<TestBothWays<Regex<"">, "">>();
 typeAssert<TestBothWays<Regex<"[abc]">, "a" | "b" | "c">>();
@@ -506,24 +467,41 @@ typeAssert<Test<Regex<"(ab){4}">, "abababab">>();
 typeAssert<Test<Regex<"a{10}">, "aaaaaaaaaa">>();
 typeAssert<Test<Regex<"[a-zA-Z]{2}\\d">, "aD4">>();
 
-assertMatch<Match<"", "">>();
-assertMatch<Match<"abc", "abc">>();
-assertMatch<Match<"[abc]", "a">>();
-assertMatch<Match<"[abc][def]", "ad">>();
-assertMatch<Match<"[a-z][A-Z0-9][0-9]", "aD4">>();
-assertMatch<Match<"[a-z]{20}", "aaaaaaaaaaaaaaaaaaaa">>();
+assert<Match<"", "">>();
+assert<Match<"abc", "abc">>();
+assert<Match<"[abc]", "a">>();
+assert<Match<"[abc][def]", "ad">>();
+assert<Match<"[a-z][A-Z0-9][0-9]", "aD4">>();
+assert<Match<"[a-z]{20}", "aaaaaaaaaaaaaaaaaaaa">>();
 
-assertMatch<Match<"abc|(bb(c|d))", "abc">>();
-assertMatch<Match<"abc|(bb(c|d))", "bbc">>();
-assertMatch<Match<"abc|(bb(c|d))", "bbd">>();
-assertNoMatch<Match<"abc|(bb(c|d))", "bba">>();
+assert<Match<"abc|(bb(c|d))", "abc">>();
+assert<Match<"abc|(bb(c|d))", "bbc">>();
+assert<Match<"abc|(bb(c|d))", "bbd">>();
+assertNot<Match<"abc|(bb(c|d))", "bba">>();
 
-assertMatch<Match<"[abc][def]", "bd">>();
-assertNoMatch<Match<"[abc][def]", "ag">>();
+assert<Match<"[abc][def]", "bd">>();
+assertNot<Match<"[abc][def]", "ag">>();
 
-assertMatch<Match<"ab(d|e)(g|(e(f|h)z))x", "abegx">>();
-assertMatch<Match<"abe(g|(e(f|h)z))x", "abegx">>();
-assertMatch<Match<"e(g|(ez))x", "egx">>();
-assertMatch<Match<"a(b)c", "abc">>();
+assert<Match<"ab(d|e)(g|(e(f|h)z))x", "abegx">>();
+assert<Match<"abe(g|(e(f|h)z))x", "abegx">>();
+assert<Match<"e(g|(ez))x", "egx">>();
+assert<Match<"a(b)c", "abc">>();
 
-assertMatch<Match<"(ab){2}", "abab">>();
+assert<Match<"(ab){2}", "abab">>();
+
+
+assert<Match<"a(b)", "ab">>();
+assertNot<Match<"a(b)", "a">>();
+assertNot<Match<"a(b)", "b">>();
+
+assert<Match<"e(g|(ez))x", "egx">>();
+assert<Match<"e(g|(ez))x", "eezx">>();
+assertNot<Match<"e(g|(ez))x", "egezx">>();
+
+
+assert<Match<"(a|(b|c)|d)z", "az">>();
+assert<Match<"(a|(b|c)|d)z", "bz">>();
+assert<Match<"(a|(b|c)|d)z", "cz">>();
+assert<Match<"(a|(b|c)|d)z", "dz">>();
+assertNot<Match<"(a|(b|c)|d)z", "a">>();
+assertNot<Match<"(a|(b|c)|d)z", "z">>();
