@@ -397,9 +397,9 @@ type Match<regex extends string, test extends string | boolean> =
   : And<regex extends "" ? true : false, test extends "" ? true : false> extends true ? true
   : regex extends "" ? test
   : test extends never ? false
+  : IsQuantifier<regex> extends true ? MatchQuantifier2<regex, test>
   : StartsWith<regex, ComponentTests["group"]> extends true ? MatchGroup<regex, test>
   : IsOr<regex> extends true ? MatchOr<regex, test>
-  : IsQuantifier<regex> extends true ? MatchQuantifier2<regex, test>
   : StartsWith<regex, ComponentTests["bracketExpr"]> extends true ? MatchBracketExpr<regex, test>
   : StartsWith<regex, anyChar> extends true ? MatchRegularChar<regex, test>
   : false;
