@@ -7,13 +7,13 @@ import { CharTable, InvertedCharTable } from './char-table';
                                                                               //////////////////////////////////////////
 // --- Positive examples; These all evaluate to true
 type DemoPositive01 = Match<"[a-zA-Z]{5}", "Regex">;
-type DemoPositive02 = Match<"\w\d\d", "X45">;
-type DemoPositive03 = Match<"(\w{5}123)|\d", "hello123">;
+type DemoPositive02 = Match<"\\w\\d\\d", "X45">;
+type DemoPositive03 = Match<"(\\w{5}123)|\\d", "hello123">;
 
 // --- Negative examples; These all evaluate to false
 type DemoNegative01 = Match<"[a-zA-Z]{5}", "too long">;
-type DemoNegative02 = Match<"\w\d\d", "123">;
-type DemoNegative03 = Match<"(\w{5}123)|\d", "xxx">;
+type DemoNegative02 = Match<"\\w\\d\\d", "123">;
+type DemoNegative03 = Match<"(\\w{5}123)|\\d", "xxx">;
 
 // For more examples, scroll to the bottom where more unit tests verify more functionality.
 
@@ -23,7 +23,8 @@ type DemoNegative03 = Match<"(\w{5}123)|\d", "xxx">;
                                                                           ///////////////////////////////// GUIDELINE //
                                                                               //////////////////////////////////////////
 /**
- * # Recurring semantics
+ * # Naming conventions
+ *
  * - Component: regex syntax component, such as groups, bracket expressions, ...
  * - Producer method, i.e. `ProduceGroup`: A type that takes a regex, processes the next token,
  *   and produces all strings that match that token, and continues to process the remaining string
@@ -56,7 +57,9 @@ type IsNotEmpty<T extends string> = Not<IsEmpty<T>>;
 type IsEqual<A extends string, B extends string> = And<A extends B ? true : false, B extends A ? true : false>;
 type IsInequal<A extends string, B extends string> = Not<IsEqual<A, B>>;
 type Extends<A, B> = A extends B ? true : false;
-type StartsWith<str extends string, prefix extends string> = Extends<str, `${prefix}${string}`>
+type StartsWith<str extends string, prefix extends string> = Extends<str, `${prefix}${string}`>;
+type JoinList<T extends any[]> = T extends [infer initial, ...(infer rest)]
+  ? initial extends string ? `${initial}${JoinList<rest>}` : "" : "";
 
                                                                       //////////////////////////////////////////////////
                                                                           ///////////////////////////// COUNTER LOGIC //
@@ -245,18 +248,18 @@ type ProduceRemainingGroup<groupContent extends string, rest extends string> =
 // of a closing bracket.
 
 type MatchGroup<regex extends string, test extends string> =
-  regex extends `(${infer group})${infer regexRest}`
-    ? test extends `${Regex<group>}${infer testRest}`
+  regex extends `${infer start}(${infer group})${infer regexRest}`
+    //? test extends `${Regex<start>}${Regex<group>}${infer testRest}`
       // ? Match<regexRest, testRest>
-      ? MatchRemainingGroup<group, regexRest, testRest>
-      : false
+      ? MatchRemainingGroup<start, group, regexRest, test>
+     // : false
     : false;
-type MatchRemainingGroup<group extends string, regexRest extends string, test extends string> =
+type MatchRemainingGroup<start extends string, group extends string, regexRest extends string, test extends string> =
   regexRest extends `${infer remainingGroup})${infer actualRest}`
-    ? MatchRemainingGroup<`${ group })${ remainingGroup }`, actualRest, test>
-    : Match<regexRest, test>;
-// TODO MatchRemainingGroup
+    ? MatchRemainingGroup<start, `${ group })${ remainingGroup }`, actualRest, test>
+    : Match<`${start}${group}${regexRest}`, test>;
 
+// TODO works somewhat?
 type testsad = ProduceGroup<"(bb(c|d)ee)xx">; // ["bb(c|d)ee", "xx"]
 type testsad2 = ProduceGroup<"bb(c|d)ee">; // ["bb(c|d)ee", "xx"]
 type testsad3 = ProduceGroup<"(c|d)ee">; // ["c|d", "ee"]
@@ -264,6 +267,7 @@ type inner = ProduceGroup<"(c|d)ee">; // ["c|d", "ee"]
 type yoo = Regex<"c|d">;
 
 type matchTest = Match<"abc|(bb(c|d))", "bbc">;
+type matchTest2x = Match<"abc|(bb(c|d))", "bbd">; // !
 type matchTestx = Match<"bb(c|d)", "bbc">;
 type matchTest2 = StartsWith<"abc|(bb(c|d))", ComponentTests["group"]>;
 type matchTest3 = StartsWith<"abc|(bb(c|d))", ComponentTests["or"]>;
@@ -350,7 +354,7 @@ type MatchBracketExpr<regex extends string, test extends string> =
 type Match<regex extends string, test extends string> =
   And<regex extends "" ? true : false, test extends "" ? true : false> extends true ? true
   : test extends never ? false
-  : StartsWith<regex, ComponentTests["group"]> extends true ? MatchGroup<regex, test>
+  : Extends<regex, `${string}${ComponentTests["group"]}${string}`> extends true ? MatchGroup<regex, test>
   : StartsWith<regex, ComponentTests["or"]> extends true ? MatchOr<regex, test>
   : IsQuantifier<regex> extends true ? MatchQuantifier2<regex, test>
   : StartsWith<regex, ComponentTests["bracketExpr"]> extends true ? MatchBracketExpr<regex, test>
@@ -363,8 +367,6 @@ type MatchRegularChar<regex extends string, test extends string> =
       ? And<Extends<regexChar, testChar>, Match<regexRest, testRest>>
       : false
     : false;
-
-
 
 
                                                                       //////////////////////////////////////////////////
@@ -408,9 +410,14 @@ type Regex<S extends string> =
                                                                       //////////////////////////////////////////////////
                                                                           /////////////////////INSIGHTFUL EXPERIMENTS //
                                                                               //////////////////////////////////////////
-type X = "[a]" extends `[${infer A}]${infer B}` ? [A, B] : never; // ["a", ""]
-type Y = "abcdef" extends `${infer A}${infer B}` ? [A, B] : never; // ["a", "bcdef"]
-type Z = "a" extends `${infer A}${infer B}` ? [A, B] : never; // ["a", ""]
+type EXP1 = "[a]" extends `[${infer A}]${infer B}` ? [A, B] : never; // ["a", ""]
+type EXP2 = "abcdef" extends `${infer A}${infer B}` ? [A, B] : never; // ["a", "bcdef"]
+type EXP3 = "a" extends `${infer A}${infer B}` ? [A, B] : never; // ["a", ""]
+type EXP4 = "abcdef" extends `${string}${infer A}${infer B}` ? [A, B] : never; // ["b", "cdef"]
+type EXP5 = "abcdef" extends `${string}${infer A}` ? A extends anyChar ? A : never : never; // never
+type EXP6 = [1,2,3] extends [...any, infer final] ? final : never; // 3
+
+type EXP7 = JoinList<["a", "b", "cde"]>;
 
 
 
@@ -464,11 +471,16 @@ assertMatch<Match<"[abc]", "a">>();
 assertMatch<Match<"[abc][def]", "ad">>();
 assertMatch<Match<"[a-z][A-Z0-9][0-9]", "aD4">>();
 assertMatch<Match<"[a-z]{20}", "aaaaaaaaaaaaaaaaaaaa">>();
+assertMatch<Match<"(ab){4}|d", "abababab">>();
 
+assertMatch<Match<"a|b|c|d", "c">>();
+assertMatch<Match<"a|([gh]x)|z", "hx">>();
 assertMatch<Match<"abc|(bb(c|d))", "abc">>();
 assertMatch<Match<"abc|(bb(c|d))", "bbc">>();
 assertMatch<Match<"abc|(bb(c|d))", "bbd">>();
-assertNoMatch<Match<"abc|(bb(c|d))", "abc">>();
+assertMatch<Match<"bb(c|d)", "bbd">>();
+assertMatch<Match<"a(b(c))", "abc">>();
+assertNoMatch<Match<"abc|(bb(c|d))", "bbcd">>();
 type asd = Match<"abc|(bb(c|d))", "bbd">;
 
 assertNoMatch<Match<"[abc][def]", "ag">>();
