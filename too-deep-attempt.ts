@@ -224,7 +224,7 @@ type ParsedOf<state extends ParserState> = state extends ParserState<any, infer 
 type CountOf<state extends ParserState> = state extends ParserState<any, any, infer count> ? count : never;
 type MatchLookahead<state extends ParserState, tokenName extends string> =
   Extends<GetTokenName<state["lookahead"]>, tokenName>;
-type Consume<state extends ParserState, tokenName extends string> =
+type Consume<state extends ParserState, tokenName extends string = any> =
   IfElse<
     Extends<GetTokenName<state["lookahead"]>, tokenName>,
     ParserState<WithoutFirstListItem<LexerOf<state>>, ParsedOf<state>, CountOf<state>>,
@@ -237,12 +237,14 @@ type AppendState<state extends ParserState, nextState extends ParserState> =
 type Parser<lexer extends Token<any, any>[]> = ParseExpression<ParserState<lexer, [], "0">>;
 
 type ParseExpression<state extends ParserState> =
+  [CountOf<state>] extends ["500"] ? never :
   IncreaseStateCount<
     IfElse<
       MatchLookahead<ParseTerm<state>, "ALT">,
-      Consume<ParserState<LexerOf<state>, [
-        Alteration<ParsedOf<state>, ParseTerm<state>["lookahead"]>
-      ], CountOf<state>>, "ALT">,
+      // Consume<ParserState<LexerOf<state>, [
+      //   Alteration<ParsedOf<state>, ParseTerm<Consume<state, "ALT">>["lookahead"]>
+      // ], CountOf<state>>, "ALT">,
+      never,
       ParseTerm<state>
       >
     >;
@@ -253,33 +255,47 @@ type test2 = WithoutFirstListItem<LexerOf<ParserState<[Token<"CHAR", "x">, Token
 
 
 type ParseTerm<state extends ParserState> =
-  CountOf<state> extends "25" ? never : state["lexer"] extends [] ? state :
+  [CountOf<state>] extends ["500"] ? never : state["lexer"] extends [] ? state : state extends never ? never :
     IncreaseStateCount<
         And<Not<MatchLookahead<ParseFactor<state>, "RIGHT_PAREN">>, Not<MatchLookahead<ParseFactor<state>, "ALT">>> extends true
-        ? ParserState<LexerOf<state>, [...ParsedOf<state>, ...ParseFactor<state>["parsed"], ...ParseTerm<ParseFactor<state>>["parsed"]], CountOf<state>>
+        // ? ParserState<LexerOf<DelexTerm<state>>, [...ParsedOf<state>, ...ParseFactor<state>["parsed"], ...ParseTerm<ParseFactor<state>>["parsed"]], CountOf<state>>
+        ? IncreaseStateCount<ParseTerm<ParseFactor<state>>>
         // ? AppendState<AppendState<state, ParseFactor<state>>, ParseTerm<ParseFactor<state>>>
         : ParseFactor<state>
       >;
-
+type DelexTerm<state extends ParserState> = CountOf<state> extends "25" ? never : IfElse<
+  And<Not<MatchLookahead<ParseFactor<state>, "RIGHT_PAREN">>, Not<MatchLookahead<ParseFactor<state>, "ALT">>>,
+  DelexTerm<DelexFactor<state>>,
+  DelexFactor<state>
+  >;
 
 // TODO factor term
 
 type ParseFactor<state extends ParserState> = ParsePrimary<state>; // TODO
+type DelexFactor<state extends ParserState> = DelexPrimary<state>;
+
 type ParsePrimary<state extends ParserState> =
   CountOf<state> extends "25" ? never :
   MatchLookahead<state, "LEFT_PAREN"> extends true
-    ? Consume<
-      ParserState<LexerOf<state>, [
-        ...ParsedOf<state>, ParseTerm<state>["lookahead"]
-      ], CountOf<state>>,
-      "LEFT_PAREN"
-      >
+    ? // Consume<
+      // ParserState<LexerOf<state>, [
+      //   ...ParsedOf<state>, ParseTerm<state>["lookahead"]
+      // ], CountOf<state>>,
+      // "LEFT_PAREN"
+      // >
+      never
     : Consume<ParserState<LexerOf<state>, [...state["parsed"], state["lookahead"]], CountOf<state>>, "CHAR">;
+type DelexPrimary<state extends ParserState> = Consume<state, "CHAR">;
 
+type asdasasdasdd = ParsePrimary<ParsePrimary<ParserState<Lexer<"aa">, [], "0">>>;
+type asdaasdadssd2 = ParseTerm<ParserState<Lexer<"aa">, [], "0">>;
+type asdaasdadssd23 = ParseTerm<ParserState<Lexer<"aaaaaa">, [], "0">>;
+type asdaasdadssd223 = ParseTerm<ParserState<Lexer<"aaaaaaaaaaaaaaaaaaaaaa">, [], "0">>;
 type parsedx = ParseTerm<ParserState<Lexer<"aa">, [], "0">>;
 type parsedFac = ParseFactor<ParserState<Lexer<"aa">, [], "0">>;
 
 type testState = ParserState<Lexer<"abc">, [], "0">;
+type delected = DelexTerm<testState>
 type primaryParsed = Consume<ParserState<LexerOf<testState>, [...testState["parsed"], testState["lookahead"]], CountOf<testState>>, "CHAR">;
 type mext = ParseFactor<ParseFactor<testState>>;
 
@@ -328,3 +344,7 @@ type MockParse3<lexer extends any[], tree extends any[]> = lexer extends [] ? []
 type MockParseInner3<lexer extends any[], tree extends any[]> =
   IfElse<Extends<lexer[0], "(">, [...tree, MockParse3<WithoutFirstListItem<lexer>, []>],[...tree, lexer[0], ...MockParse3<WithoutFirstListItem<lexer>, []>]>;
 type x3 = MockParse3<["a", "(", "c", ")"], []>;
+
+
+type RecursiveTest<T extends string> = T extends "100" ? "end" : RecursiveTest<Increase<T>>;
+type recursivetester = RecursiveTest<"4">;
