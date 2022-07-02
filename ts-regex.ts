@@ -2,14 +2,14 @@
                                                                           ////////////////////////////////////// DEMO //
                                                                               //////////////////////////////////////////
 // --- Positive examples; These all evaluate to true
-type DemoPositive01 = MatchInternal<"[a-zA-Z]{5}", "Regex">;
-type DemoPositive02 = MatchInternal<"((hello)|(goodbye)) world [0-9]+", "hello world 123">;
-type DemoPositive03 = MatchInternal<"([a-z]{5}123)|\\d", "hello123">;
+type DemoPositive01 = Match<"[a-zA-Z]{5}", "Regex">;
+type DemoPositive02 = Match<"((hello)|(goodbye)) world [0-9]+", "hello world 123">;
+type DemoPositive03 = Match<"([a-z]{5}123)|\\d", "hello123">;
 
 // --- Negative examples; These all evaluate to false
-type DemoNegative01 = MatchInternal<"[a-zA-Z]{5}", "too long">;
-type DemoNegative02 = MatchInternal<"\\w\\d\\d", "123">;
-type DemoNegative03 = MatchInternal<"(\\w{5}123)|\\d", "xxx">;
+type DemoNegative01 = Match<"[a-zA-Z]{5}", "too long">;
+type DemoNegative02 = Match<"\\w\\d\\d", "123">;
+type DemoNegative03 = Match<"(\\w{5}123)|\\d", "xxx">;
 
 // For more examples, scroll to the bottom where more unit tests verify more functionality.
 
