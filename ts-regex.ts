@@ -220,16 +220,17 @@ type IsNumberString<str extends string> = str extends numberString ? true : fals
                                                                       //////////////////////////////////////////////////
                                                                           ////////////////////////// REGEX COMPONENTS //
                                                                               //////////////////////////////////////////
-// ---------------------------------------------------------------------------------------------- Component utils --- //
-// type StartsWithComponent<componentTest extends string, regex extends string> = Extends<regex, `${componentTest}${string}`>;
-// type IsComponentToken<componentTest extends string, regex extends string> = Extends<regex, componentTest>;
-
-
 // -------------------------------------------------------------------------------------------- Component testers --- //
 interface ComponentTests {
     or: `${string}|${string}`;
     group: `(${"?:" | ""}${string})`;
-    word: `\w`;
+    wordClass: `\w`;
+    nonWordClass: `\W`;
+    digitClass: `\d`;
+    nonDigitClass: `\D`;
+    whitespaceClass: `\s`;
+    nonWhitespaceClass: `\S`;
+    anyCharClass: `.`;
     bracketExpr: `[${string}]`;
 }
 
@@ -269,25 +270,27 @@ type MatchRemainingGroup<regexGroup extends string, regexRest extends string, te
 
 
 // -------------------------------------------------------------------------------------------- Character classes --- //
-// TODO is-token-checks required?
 type IsToken<regex extends string> =
   Or<
-    Extends<regex, ComponentTests["word"]>,
-    Extends<regex, ComponentTests["group"]>,
-    Extends<regex, ComponentTests["bracketExpr"]>,
-    IsAnyChar<regex>
-  >;
+    Or<
+      Extends<regex, ComponentTests["group"]>,
+      Extends<regex, ComponentTests["bracketExpr"]>,
+      Extends<regex, ComponentTests["wordClass"]>,
+      Extends<regex, ComponentTests["nonWordClass"]>,
+      Extends<regex, ComponentTests["digitClass"]>
+      >,
+    Or<
+      Extends<regex, ComponentTests["nonDigitClass"]>,
+      Extends<regex, ComponentTests["whitespaceClass"]>,
+      Extends<regex, ComponentTests["nonWhitespaceClass"]>,
+      Extends<regex, ComponentTests["anyCharClass"]>,
+      IsAnyChar<regex>
+      >
+    >;
 
 
 // -------------------------------------------------------------------------------------------------- Quantifiers --- //
 type QUANTITIY_MAX = "100";
-
-// type GeneralQuantifierTokenCheck<token extends string> = Or<Not<Contains<token, "|">>, EndsWith<token, ")">>;
-type GeneralQuantifierTokenCheck<token extends string> = Or<
-  And<StartsWith<token, "(">, EndsWith<token, ")">>,
-  And<StartsWith<token, "[">, EndsWith<token, "]">>,
-  IsSingleChar<token>
-  >;
 
 type IsQuantifier<regex extends string> =
     Or<
@@ -299,19 +302,19 @@ type IsQuantifier<regex extends string> =
 
 type IsLimitsQuantifier<regex extends string> =
   regex extends `${infer token}{${infer quantity}}${string}`
-    ? And<IsNumberString<quantity>, GeneralQuantifierTokenCheck<token>>
+    ? And<IsNumberString<quantity>, IsToken<token>>
     : false;
 type IsQmarkQuantifier<regex extends string> =
   regex extends `${infer token}?${string}`
-    ? GeneralQuantifierTokenCheck<token>
+    ? IsToken<token>
     : false;
 type IsPlusQuantifier<regex extends string> =
   regex extends `${infer token}+${string}`
-    ? GeneralQuantifierTokenCheck<token>
+    ? IsToken<token>
     : false;
 type IsAsterixQuantifier<regex extends string> =
   regex extends `${infer token}*${string}`
-    ? GeneralQuantifierTokenCheck<token>
+    ? IsToken<token>
     : false;
 
 type MatchQuantifier<regex extends string, test extends someTest> =
@@ -383,12 +386,33 @@ type ParseQuantityMax<quantity extends string> =
 // ------------------------------------------------------------------------------------------------- Range groups --- //
 type MatchBracketExpr<regex extends string, test extends someTest> =
   regex extends `[${infer range}]${infer regexRest}`
-    ? test extends `${CharRange<range>}${infer testRest}`
-      ? Match<regexRest, testRest>
-      : false
+    ? range extends `^${infer actualRange}`
+      ? test extends `${infer firstChar}${infer testRest}`
+        ? IfElse<Not<Extends<firstChar, CharRange<actualRange>>>, Match<regexRest, testRest>, false>
+        : false
+      : test extends `${CharRange<range>}${infer testRest}`
+        ? Match<regexRest, testRest>
+        : false
     : false;
 
 
+
+// ------------------------------------------------------------------------------------------- Character matchers --- //
+
+type MatchCharacterClass<
+  regex extends string, test extends someTest, classSymbol extends string, group extends string, prefix extends string = "\\"> =
+    regex extends `${prefix}${infer actualSymbol}${infer regexRest}`
+      ? test extends `${MatchBracketExpr<group, test>}${infer testRest}`
+        ? IfElse<Extends<actualSymbol, classSymbol>, Match<regexRest, testRest>, false>
+        : false
+      : false;
+
+type MatchRegularChar<regex extends string, test extends someTest> =
+  regex extends `${infer regexChar}${infer regexRest}`
+    ? test extends `${infer testChar}${infer testRest}`
+      ? IfElse<Extends<regexChar, testChar>, Match<regexRest, testRest>, false>
+      : false
+    : false;
 
                                                                       //////////////////////////////////////////////////
                                                                           ////////////////////////////// MATCHER TYPE //
@@ -402,17 +426,18 @@ type Match<regex extends string, test extends string | boolean> =
   : StartsWith<regex, ComponentTests["group"]> extends true ? MatchGroup<regex, test>
   : IsOr<regex> extends true ? MatchOr<regex, test>
   : StartsWith<regex, ComponentTests["bracketExpr"]> extends true ? MatchBracketExpr<regex, test>
+  // TODO: The character classes work in theory, but break the compilation due to callstack size being exceeded
+  // : StartsWith<regex, "\\d"> extends true ? MatchCharacterClass<regex, test, "d", "[0-9]">
+  // : StartsWith<regex, "\\D"> extends true ? MatchCharacterClass<regex, test, "D", "[^0-9]">
+  // : StartsWith<regex, "\\w"> extends true ? MatchCharacterClass<regex, test, "w", "[a-zA-Z]">
+  // : StartsWith<regex, "\\W"> extends true ? MatchCharacterClass<regex, test, "W", "[^a-zA-Z]">
+  // : StartsWith<regex, "\\s"> extends true ? MatchCharacterClass<regex, test, "s", "[ ]">
+  // : StartsWith<regex, "\\S"> extends true ? MatchCharacterClass<regex, test, "S", "[^ ]">
+  // : StartsWith<regex, "."> extends true ? MatchCharacterClass<regex, test, ".", "[0-9a-zA-Z ]", "">
   : StartsWith<regex, anyChar> extends true ? MatchRegularChar<regex, test>
   : false;
 
 
-
-type MatchRegularChar<regex extends string, test extends someTest> =
-  regex extends `${infer regexChar}${infer regexRest}`
-    ? test extends `${infer testChar}${infer testRest}`
-      ? IfElse<Extends<regexChar, testChar>, Match<regexRest, testRest>, false>
-      : false
-    : false;
 
 
                                                                       //////////////////////////////////////////////////
@@ -461,6 +486,8 @@ assert<Match<"[abc]", "a">>();
 assert<Match<"[abc][def]", "ad">>();
 assert<Match<"[a-z][A-Z0-9][0-9]", "aD4">>();
 assert<Match<"[a-z]{20}", "aaaaaaaaaaaaaaaaaaaa">>();
+assert<Match<"[^abc]", "0">>();
+assertNot<Match<"[^abc]", "a">>();
 
 assert<Match<"abc|(bb(c|d))", "abc">>();
 assert<Match<"abc|(bb(c|d))", "bbc">>();
@@ -528,3 +555,7 @@ assert<Match<"ab*", "a">>();
 assert<Match<"ab*", "ab">>();
 assert<Match<"ab*", "abb">>();
 assert<Match<"ab*", "abbb">>();
+
+// assert<Match<"\w\w\w-\d\d\d-\s-\W\W\W-\D\D\D-\S\S\S-...", "aGz-159- - 13-a5z-1g ">>();
+// assertNot<Match<"\w\w\w-\d\d\d-\s-\W\W\W-\D\D\D-\S\S\S-...", "aGz-159- - 13-a5z-1g ">>();
+// type test = Match<"\w\w\w-\d\d\d-\s-\W\W\W-\D\D\D-\S\S\S-...", "aGz-159- - 13-a5z-1g ">;
