@@ -1,19 +1,15 @@
-// https://support.bettercloud.com/s/article/Creating-your-own-Custom-Regular-Expression-bc72153
-
-import { CharTable, InvertedCharTable } from './char-table';
-
                                                                       //////////////////////////////////////////////////
                                                                           ////////////////////////////////////// DEMO //
                                                                               //////////////////////////////////////////
 // --- Positive examples; These all evaluate to true
 type DemoPositive01 = MatchInternal<"[a-zA-Z]{5}", "Regex">;
 type DemoPositive02 = MatchInternal<"((hello)|(goodbye)) world [0-9]+", "hello world 123">;
-type DemoPositive03 = MatchInternal<"([a-z]{5}123)|\d", "hello123">;
+type DemoPositive03 = MatchInternal<"([a-z]{5}123)|\\d", "hello123">;
 
 // --- Negative examples; These all evaluate to false
 type DemoNegative01 = MatchInternal<"[a-zA-Z]{5}", "too long">;
-type DemoNegative02 = MatchInternal<"\w\d\d", "123">;
-type DemoNegative03 = MatchInternal<"(\w{5}123)|\d", "xxx">;
+type DemoNegative02 = MatchInternal<"\\w\\d\\d", "123">;
+type DemoNegative03 = MatchInternal<"(\\w{5}123)|\\d", "xxx">;
 
 // For more examples, scroll to the bottom where more unit tests verify more functionality.
 
@@ -476,8 +472,55 @@ type debug311 = MatchInternal<"((hello)|(goodbye)) world [0-9]+", "hello world 1
 type debug10 = MatchInternal<"(a)|(b)", "ab">;
 type debug11 = StartsWith<"(a)|(b)", ComponentTests["group"]>;
 
+
+
                                                                       //////////////////////////////////////////////////
-                                                                          /////////////////////INSIGHTFUL EXPERIMENTS //
+                                                                          ///////////////////// ASCII Character Table //
+                                                                              //////////////////////////////////////////
+interface CharTable {
+    "0": never,       "32": " ",      "64": "@",      "97": "a",
+    "1": never,       "33": "!",      "65": "A",      "98": "b",
+    "2": never,       "34": "\"",     "66": "B",      "99": "c",
+    "3": never,       "35": "#",      "67": "C",      "100": "d",
+    "4": never,       "36": "$",      "68": "D",      "101": "e",
+    "5": never,       "37": "%",      "69": "E",      "102": "f",
+    "6": never,       "38": "&",      "70": "F",      "103": "g",
+    "7": never,       "39": "'",      "71": "G",      "104": "h",
+    "8": never,       "40": "(",      "72": "H",      "105": "i",
+    "9": never,       "41": ")",      "73": "I",      "106": "j",
+    "10": never,      "42": "*",      "74": "J",      "107": "k",
+    "11": never,      "43": "+",      "75": "K",      "108": "l",
+    "12": never,      "44": ",",      "76": "L",      "109": "m",
+    "13": never,      "45": "-",      "77": "M",      "110": "n",
+    "14": never,      "46": ".",      "78": "N",      "111": "o",
+    "15": never,      "47": "/",      "79": "O",      "112": "p",
+    "16": never,      "48": "0",      "80": "P",      "113": "q",
+    "17": never,      "49": "1",      "81": "Q",      "114": "r",
+    "18": never,      "50": "2",      "82": "R",      "115": "s",
+    "19": never,      "51": "3",      "83": "S",      "116": "t",
+    "20": never,      "52": "4",      "84": "T",      "117": "u",
+    "21": never,      "53": "5",      "85": "U",      "118": "v",
+    "22": never,      "54": "6",      "86": "V",      "119": "w",
+    "23": never,      "55": "7",      "87": "W",      "120": "x",
+    "24": never,      "56": "8",      "88": "X",      "121": "y",
+    "25": never,      "57": "9",      "89": "Y",      "122": "z",
+    "26": never,      "58": ":",      "90": "Z",      "123": "{",
+    "27": never,      "59": ";",      "91": "[",      "124": "|",
+    "28": never,      "60": "<",      "92": "\\",     "125": "}",
+    "29": never,      "61": "=",      "93": "]",      "126": "~",
+    "30": never,      "62": ">",      "94": "^",      "127": never,
+    "31": never,      "63": "?",      "95": "_",
+}
+
+type InvertedCharTable = {
+    [P in keyof CharTable as CharTable[P]]: P
+}
+
+
+
+
+                                                                      //////////////////////////////////////////////////
+                                                                          //////////////////// INSIGHTFUL EXPERIMENTS //
                                                                               //////////////////////////////////////////
 type X = "[a]" extends `[${infer A}]${infer B}` ? [A, B] : never; // ["a", ""]
 type Y = "abcdef" extends `${infer A}${infer B}` ? [A, B] : never; // ["a", "bcdef"]
@@ -605,3 +648,4 @@ assertNot<Match<"((hello)|(goodbye)) world [0-9]+", "hello world ">>();
 assertNot<Match<"((hello)|(goodbye)) world [0-9]+", "hello world">>();
 assertNot<Match<"((hello)|(goodbye)) world [0-9]+", "hello ">>();
 type testasd = Match<"((hello)|(goodbye)) world [0-9]+", "hello world 3">;
+
