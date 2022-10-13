@@ -8,8 +8,9 @@ type DemoPositive03 = Match<"([a-z]{5}123)|\\d", "hello123">;
 
 // --- Negative examples; These all evaluate to false
 type DemoNegative01 = Match<"[a-zA-Z]{5}", "too long">;
-type DemoNegative02 = Match<"\\w\\d\\d", "123">;
-type DemoNegative03 = Match<"(\\w{5}123)|\\d", "xxx">;
+type DemoNegative02 = Match<"[a-z]{3}", "123">;
+type DemoNegative03 = Match<"([a-z]{5}123)|[0-9]", "xxx">;
+
 
 // For more examples, scroll to the bottom where more unit tests verify more functionality.
 
@@ -566,6 +567,10 @@ assert<Match<"[a-z][A-Z0-9][0-9]", "aD4">>();
 assert<Match<"[a-z]{20}", "aaaaaaaaaaaaaaaaaaaa">>();
 assert<Match<"[^abc]", "0">>();
 assertNot<Match<"[^abc]", "a">>();
+
+assert<Match<"abc|def", "abc">>();
+assert<Match<"abc|def", "def">>();
+assertNot<Match<"abc|def", "abdef">>();
 
 assert<Match<"abc|(bb(c|d))", "abc">>();
 assert<Match<"abc|(bb(c|d))", "bbc">>();
